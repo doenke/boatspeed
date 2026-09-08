@@ -38,16 +38,23 @@ Quelle, die auf allen Plattformen Geschwindigkeit und Kurs liefert. Kompass- und
 Beschleunigungssensoren (`DeviceOrientation`) sind bewusst nicht eingebunden: Sie
 liefern die Blickrichtung des Geräts, nicht die Fahrtrichtung des Bootes.
 
-## Nutzung
+## Loslegen
 
-```bash
-# lokal testen
-python3 -m http.server 8000
-# dann http://localhost:8000 öffnen
-```
+Den Inhalt dieses Verzeichnisses auf einen Webspace kopieren, die Seite auf dem
+Handy aufrufen – fertig. Kein Build, kein Backend, keine Abhängigkeiten, die
+erst installiert werden müssten.
 
-Der Standortzugriff funktioniert nur über **HTTPS** oder `localhost`. Auf dem Handy
-die Seite öffnen und über das Browsermenü „Zum Startbildschirm hinzufügen“ wählen.
+Zwei Dinge sind zu beachten:
+
+- **HTTPS ist Pflicht.** Ohne verschlüsselte Verbindung rückt der Browser die
+  Position nicht heraus. Jedes Zertifikat tut es, auch ein kostenloses.
+- **Als App einrichten:** im Browsermenü „Zum Startbildschirm hinzufügen“
+  wählen. Dann startet BoatSpeed ohne Adressleiste, läuft offline und darf das
+  Display anlassen.
+
+Zum Ausprobieren am Rechner genügt `python3 -m http.server 8000` und
+`http://localhost:8000` – localhost gilt dem Browser als sicher genug für den
+Standortzugriff.
 
 ## Genauigkeit
 
