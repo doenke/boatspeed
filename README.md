@@ -120,7 +120,16 @@ Die App wird per SFTP aus GitHub auf den Webspace gespiegelt – der Workflow
 liegt unter `.github/workflows/deploy.yml`. Einrichtung, Secrets und der
 Umgang mit Hostschlüsseln stehen in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
-## Lizenzen
+## Lizenz
 
-Leaflet (BSD-2-Clause) liegt unter `vendor/leaflet/` inklusive `LICENSE`.
-Kartendaten © OpenStreetMap-Mitwirkende.
+BoatSpeed steht unter der [MIT-Lizenz](LICENSE).
+
+Mitgeliefert und weiterhin unter ihrer eigenen Lizenz:
+
+- **Leaflet 1.9.4** (BSD-2-Clause) unter `vendor/leaflet/`, samt `LICENSE`.
+  Die Bedingungen sind mit MIT verträglich; die Lizenzdatei muss beim
+  Weitergeben erhalten bleiben.
+
+Die Kartendaten stammen von OpenStreetMap und stehen unter der
+[ODbL](https://www.openstreetmap.org/copyright); der Hinweis
+„© OpenStreetMap-Mitwirkende" ist deshalb fest in die Karte eingebaut.

@@ -62,8 +62,9 @@ zeigt im Protokoll, welche Dateien angefasst würden – besonders die Zeilen
 `Removing old file`. Erst wenn die Liste plausibel aussieht, ohne Haken
 wiederholen.
 
-Danach genügt ein Push auf `main`. Ein manueller Start funktioniert aus jedem
-Branch, auch bevor `main` existiert.
+Danach genügt ein Push auf einen der Branches, die oben im Workflow unter
+`on.push.branches` stehen – derzeit `main` und der Arbeitsbranch. Ein
+manueller Start funktioniert aus jedem Branch.
 
 ## Wichtig zu wissen
 
