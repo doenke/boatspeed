@@ -1,0 +1,122 @@
+name: Deploy per SFTP
+
+# Lädt den Stand des Branches auf den Webspace. Es wird gespiegelt: neue und
+# geänderte Dateien werden hochgeladen, entfernte auf dem Server gelöscht.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Nur anzeigen, was hochgeladen und gelöscht würde"
+        type: boolean
+        default: false
+
+# Zwei gleichzeitige Deploys auf denselben Webspace wären ein Kuddelmuddel.
+concurrency:
+  group: sftp-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quellstand holen
+        uses: actions/checkout@v4
+
+      - name: Cache-Version in den Service Worker stempeln
+        run: |
+          set -eu
+          sed -i "s/__BUILD__/${GITHUB_SHA:0:12}/" sw.js
+          grep -n "const VERSION" sw.js
+
+      - name: lftp installieren
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp sshpass
+
+      - name: Zugangsdaten einrichten
+        env:
+          SFTP_KEY: ${{ secrets.SFTP_KEY }}
+          SFTP_KNOWN_HOSTS: ${{ secrets.SFTP_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          if [ -z "${SFTP_KNOWN_HOSTS:-}" ]; then
+            echo "::error::Das Secret SFTP_KNOWN_HOSTS fehlt. Einmalig erzeugen mit:"
+            echo "::error::  ssh-keyscan -p <PORT> <HOST>"
+            exit 1
+          fi
+          printf '%s\n' "$SFTP_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          if [ -n "${SFTP_KEY:-}" ]; then
+            printf '%s\n' "$SFTP_KEY" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+          fi
+
+      - name: Auf den Webspace spiegeln
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || '22' }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_KEY: ${{ secrets.SFTP_KEY }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -eu
+
+          for name in SFTP_HOST SFTP_USER REMOTE_DIR; do
+            eval "value=\${$name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::Das Secret $name fehlt."
+              exit 1
+            fi
+          done
+          if [ -z "${SFTP_KEY:-}" ] && [ -z "${SFTP_PASSWORD:-}" ]; then
+            echo "::error::Weder SFTP_KEY noch SFTP_PASSWORD gesetzt."
+            exit 1
+          fi
+
+          # Notbremse: --delete auf dem Wurzelverzeichnis wäre verheerend.
+          case "$REMOTE_DIR" in
+            "/"|""|".") echo "::error::SFTP_REMOTE_DIR darf nicht das Wurzelverzeichnis sein."; exit 1 ;;
+          esac
+
+          SSH_OPTS="-a -x -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          if [ -n "${SFTP_KEY:-}" ]; then
+            CONNECT="ssh $SSH_OPTS -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes"
+          else
+            export SSHPASS="$SFTP_PASSWORD"
+            CONNECT="sshpass -e ssh $SSH_OPTS -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+          fi
+
+          DRY=""
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            DRY="--dry-run"
+            echo "Trockenlauf – es wird nichts verändert."
+          fi
+
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 3;
+            set net:timeout 20;
+            set sftp:auto-confirm no;
+            set sftp:connect-program \"$CONNECT\";
+            open -u \"$SFTP_USER\" sftp://$SFTP_HOST:$SFTP_PORT;
+            mirror --reverse --delete --verbose --no-perms $DRY \
+                   --exclude '^\.git/' \
+                   --exclude '^\.github/' \
+                   --exclude '^\.gitignore$' \
+                   ./ \"$REMOTE_DIR\";
+          "
+
+      - name: Ergebnis
+        run: |
+          echo "Ausgerollt: ${GITHUB_SHA:0:12}"

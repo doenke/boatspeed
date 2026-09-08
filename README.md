@@ -114,58 +114,64 @@ Messgenauigkeit unter `accuracy`. Das GPX ist für alles andere gedacht –
 OpenCPN, Garmin, Auswertungswerkzeuge – und trägt Geschwindigkeit und Kurs in
 einer `TrackPointExtension`.
 
-## Deployment auf eigenen Webspace
+## Deployment per SFTP aus GitHub
 
-Unter `deploy/` liegt ein PHP-Skript, das die App direkt von GitHub auf den
-Webspace holt – ohne Git, Shell-Zugriff oder Composer. Es lädt den aktuellen
-Stand des Branches als ZIP, entpackt ihn und spiegelt ihn ins Zielverzeichnis:
-neue und geänderte Dateien werden kopiert, gelöschte entfernt.
+`.github/workflows/deploy.yml` spiegelt den Stand des `main`-Branches per SFTP
+auf den Webspace: neue und geänderte Dateien werden hochgeladen, entfernte auf
+dem Server gelöscht. Gearbeitet wird mit `lftp` direkt im Runner – keine
+Action aus dem Marketplace, der man Zugangsdaten anvertrauen müsste.
 
-### Einrichtung
+### Secrets anlegen
 
-1. `deploy/deploy.php` und `deploy/config.example.php` auf den Webspace laden,
-   z.B. nach `/boatspeed/deploy/`.
-2. `config.example.php` zu `config.php` kopieren und ein Token eintragen:
-   ```bash
-   php -r "echo bin2hex(random_bytes(24)), PHP_EOL;"
-   ```
-3. `https://example.org/boatspeed/deploy/deploy.php?token=DEIN_TOKEN` aufrufen
-   und auf **Jetzt aktualisieren** klicken. Fertig – die App liegt danach
-   komplett im Verzeichnis darüber.
+Repository → Settings → Secrets and variables → Actions:
 
-Für spätere Updates genügt derselbe Aufruf: das Skript vergleicht den
-installierten Commit mit GitHub und schreibt nur, was sich geändert hat.
-Es aktualisiert dabei auch sich selbst.
+| Secret | Pflicht | Inhalt |
+| --- | --- | --- |
+| `SFTP_HOST` | ja | Hostname des Webspace, z.B. `ssh.example-hoster.de` |
+| `SFTP_USER` | ja | Benutzername |
+| `SFTP_REMOTE_DIR` | ja | Zielverzeichnis, z.B. `/www/boatspeed` |
+| `SFTP_KNOWN_HOSTS` | ja | Hostschlüssel des Servers (siehe unten) |
+| `SFTP_KEY` | eins von beiden | privater SSH-Schlüssel, komplett inklusive der `-----BEGIN`-Zeile |
+| `SFTP_PASSWORD` | eins von beiden | SFTP-Passwort, falls der Hoster keine Schlüssel anbietet |
+| `SFTP_PORT` | nein | Standard 22 |
 
-### Automatisch statt per Klick
+Ist `SFTP_KEY` gesetzt, wird der Schlüssel benutzt, sonst das Passwort.
+Schlüssel sind vorzuziehen: sie lassen sich beim Hoster einzeln zurückziehen.
 
-- **Cron** (viele Hoster bieten PHP-Cronjobs an):
-  ```
-  php /pfad/zum/webspace/boatspeed/deploy/deploy.php --deploy
-  ```
-- **GitHub-Webhook**: in den Repository-Einstellungen einen Webhook auf
-  `https://example.org/boatspeed/deploy/deploy.php` anlegen, Content-Type
-  `application/json`, ein Secret vergeben und dasselbe Secret als
-  `webhook_secret` in `config.php` eintragen. Jeder Push auf den konfigurierten
-  Branch rollt dann automatisch aus.
+**`SFTP_KNOWN_HOSTS`** verhindert, dass die Zugangsdaten an einen
+untergeschobenen Server gehen. Einmalig lokal erzeugen und die Ausgabe
+vollständig als Secret einfügen:
 
-### Was das Skript beachtet
+```bash
+ssh-keyscan -p 22 ssh.example-hoster.de
+```
 
-- Es löscht **nur** Dateien, die ein früherer Deploy selbst angelegt hat
-  (protokolliert in `deploy/data/state.json`). Eigene Dateien im selben
-  Verzeichnis bleiben unangetastet.
-- `deploy/config.php` und `deploy/data/` sind von Schreib- und Löschvorgängen
-  ausgenommen; `.htaccess`-Dateien schützen beide vor dem Abruf über den Browser.
-  Auf Servern ohne `.htaccess`-Unterstützung (nginx) das Verzeichnis dort selbst
-  sperren oder `deploy/` außerhalb des Dokumentenwurzelverzeichnisses ablegen
-  und `target` in der Konfiguration setzen.
-- Fehlt im heruntergeladenen Archiv eine der Kerndateien, bricht der Deploy ab,
-  bevor irgendetwas geschrieben wird.
-- Die Cache-Version im Service Worker (`__BUILD__`) wird beim Deploy durch den
-  Commit-SHA ersetzt. Dadurch erkennen bereits installierte Apps das Update
-  zuverlässig, verwerfen den alten Cache und melden „Neue Version verfügbar“.
-- Voraussetzungen: PHP 7.4+ mit `zip` und `curl` (oder `allow_url_fopen`).
-  Für private Repositories zusätzlich ein GitHub-Token in `config.php`.
+Der Fingerabdruck sollte mit dem übereinstimmen, den der Hoster nennt. Ohne
+dieses Secret bricht der Workflow ab – das ist Absicht.
+
+### Erster Lauf
+
+Actions → **Deploy per SFTP** → *Run workflow*, dabei **Nur anzeigen, was
+hochgeladen und gelöscht würde** anhaken. Der Trockenlauf verändert nichts und
+zeigt im Protokoll, welche Dateien angefasst würden – besonders die Zeilen
+`Removing old file`. Erst wenn die Liste plausibel aussieht, ohne Haken
+wiederholen.
+
+Danach genügt ein Push auf `main`. Ein manueller Start funktioniert aus jedem
+Branch, auch bevor `main` existiert.
+
+### Wichtig zu wissen
+
+- Der Workflow spiegelt **mit Löschen**. Zeigt `SFTP_REMOTE_DIR` versehentlich
+  auf ein Verzeichnis mit anderen Inhalten, verschwinden diese. Deshalb ein
+  eigenes Unterverzeichnis verwenden; das Wurzelverzeichnis lehnt der Workflow ab.
+- `.git`, `.github` und `.gitignore` werden nicht übertragen.
+- Der Commit-SHA wird vor dem Upload als Cache-Version in `sw.js` gestempelt
+  (Platzhalter `__BUILD__`). Dadurch erkennen installierte Apps das Update,
+  verwerfen den alten Cache und melden „Neue Version verfügbar".
+- Weil ein frischer Checkout alle Zeitstempel auf „jetzt" setzt, lädt lftp
+  jedes Mal alle Dateien neu hoch. Bei rund 250 kB fällt das nicht ins Gewicht.
+- Zwei Deploys gleichzeitig verhindert die `concurrency`-Gruppe.
 
 ## Lizenzen
 

@@ -1,3 +1,2 @@
-deploy/config.php
-deploy/data/state.json
-deploy/data/deploy.log
+.DS_Store
+Thumbs.db
