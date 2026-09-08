@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BoatSpeed</title>
+<meta name="description" content="Geschwindigkeit und Kurs aus dem GPS des Handys – offlinefähige PWA mit OSM-Karte.">
+<meta name="theme-color" content="#0b1622">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BoatSpeed">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="bar">
+  <h1>BoatSpeed</h1>
+  <div class="badges">
+    <span id="gpsBadge" class="badge badge-idle">GPS aus</span>
+    <span id="netBadge" class="badge">…</span>
+  </div>
+</header>
+
+<main>
+  <section class="card speed-card">
+    <div class="speed-row">
+      <output id="speed" class="speed">--.-</output>
+      <span id="speedUnit" class="speed-unit">kn</span>
+    </div>
+    <div class="units" role="group" aria-label="Einheit">
+      <button type="button" class="unit" data-unit="ms">m/s</button>
+      <button type="button" class="unit" data-unit="kmh">km/h</button>
+      <button type="button" class="unit" data-unit="kn">kn</button>
+    </div>
+    <p id="hint" class="hint">Noch keine Position – „Start“ drücken.</p>
+  </section>
+
+  <section class="card course-card">
+    <svg id="rose" viewBox="0 0 200 200" class="rose" aria-hidden="true">
+      <circle cx="100" cy="100" r="92" class="rose-ring"/>
+      <g id="ticks"></g>
+      <text x="100" y="26" class="rose-label">N</text>
+      <text x="181" y="107" class="rose-label">E</text>
+      <text x="100" y="188" class="rose-label">S</text>
+      <text x="19"  y="107" class="rose-label">W</text>
+      <g id="needle" class="needle">
+        <polygon points="100,26 114,110 100,98 86,110" class="needle-fore"/>
+        <polygon points="100,174 86,110 100,122 114,110" class="needle-aft"/>
+      </g>
+      <circle cx="100" cy="100" r="6" class="rose-hub"/>
+    </svg>
+    <div class="course-readout">
+      <div class="label">Kurs über Grund</div>
+      <div><output id="cog" class="cog">---</output><span class="deg">°</span></div>
+      <div id="cardinal" class="cardinal">–</div>
+    </div>
+  </section>
+
+  <section class="card stats">
+    <div class="stat"><span class="label">Ø Fahrt</span>
+      <span class="val"><output id="avg">--.-</output><span class="su" data-unit-label>kn</span></span></div>
+    <div class="stat"><span class="label">Max</span>
+      <span class="val"><output id="max">--.-</output><span class="su" data-unit-label>kn</span></span></div>
+    <div class="stat"><span class="label">Distanz</span>
+      <span class="val"><output id="dist">0.00</output><span class="su">sm</span></span></div>
+    <div class="stat"><span class="label">Dauer</span>
+      <span class="val"><output id="dur">00:00:00</output></span></div>
+    <div class="stat"><span class="label">Genauigkeit</span>
+      <span class="val"><output id="acc">–</output><span class="su">m</span></span></div>
+    <div class="stat"><span class="label">Höhe</span>
+      <span class="val"><output id="alt">–</output><span class="su">m</span></span></div>
+  </section>
+
+  <section class="card map-card">
+    <div id="map"></div>
+    <div id="mapNote" class="map-note" hidden></div>
+    <button type="button" id="followBtn" class="chip follow-btn" aria-pressed="true">Folgen</button>
+  </section>
+
+  <section class="card settings">
+    <label class="row">
+      <span>Glättung</span>
+      <select id="smooth">
+        <option value="1">aus</option>
+        <option value="0.35" selected>leicht</option>
+        <option value="0.12">stark</option>
+      </select>
+    </label>
+    <label class="row">
+      <span>Nachtmodus</span>
+      <input type="checkbox" id="night">
+    </label>
+    <label class="row">
+      <span>Display anlassen</span>
+      <input type="checkbox" id="keepAwake" checked>
+    </label>
+    <button type="button" id="installBtn" class="chip" hidden>App installieren</button>
+  </section>
+</main>
+
+<footer class="bar footer">
+  <button type="button" id="startBtn" class="primary">Start</button>
+  <button type="button" id="resetBtn" class="ghost">Zurücksetzen</button>
+</footer>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

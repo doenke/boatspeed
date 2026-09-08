@@ -1,0 +1,202 @@
+:root {
+  --bg: #0b1622;
+  --card: #14202e;
+  --card-2: #1b2b3d;
+  --line: #24384e;
+  --fg: #e8f1f8;
+  --muted: #8ba3b8;
+  --accent: #38bdf8;
+  --accent-2: #22d3ee;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --good: #4ade80;
+  --radius: 14px;
+}
+
+/* Nachtmodus: rot, damit die Nachtsicht erhalten bleibt */
+body.night {
+  --bg: #0a0000;
+  --card: #170303;
+  --card-2: #1f0505;
+  --line: #3a0c0c;
+  --fg: #ff6a5e;
+  --muted: #a83a34;
+  --accent: #ff4d3d;
+  --accent-2: #ff7a6b;
+  --good: #ff6a5e;
+  --warn: #ff6a5e;
+}
+body.night #map { filter: brightness(.55) sepia(1) hue-rotate(-35deg) saturate(3); }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.bar h1 { font-size: 1rem; letter-spacing: .08em; text-transform: uppercase; margin: 0; color: var(--muted); }
+
+.badges { display: flex; gap: 6px; }
+.badge {
+  font-size: .72rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge-live { color: var(--good); border-color: currentColor; }
+.badge-wait { color: var(--warn); border-color: currentColor; }
+.badge-err  { color: var(--bad);  border-color: currentColor; }
+
+main {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  align-content: start;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+/* --- Geschwindigkeit --- */
+.speed-card { text-align: center; }
+.speed-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+.speed {
+  font-size: clamp(4rem, 22vw, 7rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -.03em;
+  color: var(--accent);
+}
+.speed-unit { font-size: 1.2rem; color: var(--muted); }
+
+.units { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+.units .unit {
+  flex: 1 1 0;
+  max-width: 110px;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  font-size: .95rem;
+  cursor: pointer;
+}
+.units .unit[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #04121c; font-weight: 600; }
+body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
+
+.hint { margin: 10px 0 0; font-size: .8rem; color: var(--muted); min-height: 1.2em; }
+
+/* --- Kurs --- */
+.course-card { display: flex; align-items: center; gap: 16px; }
+.rose { width: 132px; height: 132px; flex: none; }
+.rose-ring { fill: var(--card-2); stroke: var(--line); stroke-width: 2; }
+.rose-hub { fill: var(--muted); }
+.rose-label { fill: var(--muted); font-size: 15px; text-anchor: middle; font-family: inherit; }
+.tick { stroke: var(--line); stroke-width: 2; }
+.needle { transform-origin: 100px 100px; transition: transform .35s ease-out; }
+.needle-fore { fill: var(--accent); }
+.needle-aft  { fill: var(--line); }
+.needle.stale { opacity: .35; }
+
+.course-readout { min-width: 0; }
+.label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.cog { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.deg { font-size: 1.4rem; color: var(--muted); }
+.cardinal { color: var(--muted); font-size: 1rem; }
+
+/* --- Statistik --- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 6px; }
+.stat { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.stat .val { display: flex; align-items: baseline; gap: 4px; }
+.stat output { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.su { font-size: .7rem; color: var(--muted); }
+
+/* --- Karte --- */
+.map-card { padding: 0; overflow: hidden; position: relative; }
+#map { height: min(46vh, 380px); background: var(--card-2); }
+.leaflet-container { background: var(--card-2); font: inherit; }
+.map-note {
+  position: absolute;
+  inset: auto 10px 28px 10px;
+  z-index: 500;
+  background: rgba(11, 22, 34, .9);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: .78rem;
+  color: var(--muted);
+}
+.follow-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
+
+/* --- Einstellungen --- */
+.settings { display: grid; gap: 10px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+select, input[type="checkbox"] { accent-color: var(--accent); }
+select {
+  background: var(--card-2);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+}
+input[type="checkbox"] { width: 22px; height: 22px; }
+
+/* --- Buttons --- */
+button { font: inherit; }
+.chip {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.footer { border-top: 1px solid var(--line); border-bottom: none; position: sticky; bottom: 0; }
+.footer button { flex: 1; padding: 14px; border-radius: 12px; cursor: pointer; }
+.primary { background: var(--accent); border: none; color: #04121c; font-weight: 700; }
+body.night .primary { color: #1a0000; }
+.primary.running { background: var(--bad); color: #1a0000; }
+.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+
+@media (min-width: 720px) {
+  main { grid-template-columns: 1fr 1fr; }
+  .map-card { grid-column: 1 / -1; }
+  #map { height: 44vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .needle { transition: none; }
+}
