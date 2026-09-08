@@ -1,5 +1,6 @@
 /* Service Worker: App-Shell offline verfügbar halten, OSM-Kacheln opportunistisch cachen. */
-const VERSION    = 'v1';
+// __BUILD__ wird beim Deploy durch den Commit-SHA ersetzt (deploy/deploy.php).
+const VERSION    = '__BUILD__';
 const SHELL      = `boatspeed-shell-${VERSION}`;
 const TILES      = 'boatspeed-tiles';
 const TILE_LIMIT = 800; // grob ~40 MB; reicht für das befahrene Revier

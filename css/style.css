@@ -200,3 +200,22 @@ body.night .primary { color: #1a0000; }
 @media (prefers-reduced-motion: reduce) {
   .needle { transition: none; }
 }
+
+/* Hinweis nach einem Deploy */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card-2);
+  border: 1px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+  font-size: .85rem;
+}

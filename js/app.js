@@ -392,6 +392,26 @@
   render();
 
   if ('serviceWorker' in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // Nach einem Deploy übernimmt der neue Service Worker sofort; nur dann,
+    // wenn vorher schon einer aktiv war, ist das ein echtes Update.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) showUpdateToast();
+    });
+  }
+
+  function showUpdateToast() {
+    if (document.querySelector('.toast')) return;
+    const box = document.createElement('div');
+    box.className = 'toast';
+    box.innerHTML = '<span>Neue Version verfügbar.</span>';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = 'Neu laden';
+    btn.addEventListener('click', () => location.reload());
+    box.appendChild(btn);
+    document.body.appendChild(box);
   }
 })();
