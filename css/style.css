@@ -230,7 +230,7 @@ body.night .primary { color: #1a0000; }
 .trip-actions .chip:disabled { opacity: .4; cursor: default; }
 .chip.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
 
-.token {
+.field {
   background: var(--card-2);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -238,9 +238,10 @@ body.night .primary { color: #1a0000; }
   font: inherit;
   padding: 6px 8px;
   min-width: 0;
-  flex: 1 1 120px;
-  max-width: 220px;
+  flex: 1 1 140px;
+  max-width: 260px;
 }
+.field:disabled { opacity: .6; }
 
 /* Hinweis nach einem Deploy */
 .toast {

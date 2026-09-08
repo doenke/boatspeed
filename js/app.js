@@ -25,7 +25,7 @@
     installBtn: $('installBtn'), mapNote: $('mapNote'),
     smooth: $('smooth'), night: $('night'), keepAwake: $('keepAwake'),
     tripList: $('tripList'), tripSummary: $('tripSummary'),
-    recMode: $('recMode'), dawarichUrl: $('dawarichUrl')
+    recMode: $('recMode'), dawarichUrl: $('dawarichUrl'), tripName: $('tripName')
   };
 
   const store = {
@@ -442,9 +442,11 @@
   async function beginTrip() {
     if (state.minDist === null || state.tripId !== null) return;
     try {
-      const trip = await Track.startTrip();
+      // Leer gelassen? Dann Datum und Uhrzeit, wie im Platzhalter angeboten.
+      const trip = await Track.startTrip(el.tripName.value.trim() || undefined);
       state.tripId = trip.id;
       state.lastStored = null;
+      el.tripName.value = trip.name;
       renderTrips();
     } catch (err) {
       toast('Aufzeichnung nicht möglich: ' + err.message);
@@ -468,8 +470,26 @@
     try {
       await Track.updateTrip(id, stats);
     } catch (err) { /* Törn bleibt notfalls offen und wird beim Start repariert */ }
+    el.tripName.value = '';
+    suggestTripName();
     renderTrips();
   }
+
+  /** Der Platzhalter zeigt, welcher Name ohne Eingabe verwendet würde. */
+  function suggestTripName() {
+    el.tripName.placeholder = Track.defaultName(new Date());
+  }
+
+  // Während der Aufzeichnung benennt das Feld den laufenden Törn um.
+  el.tripName.addEventListener('focus', () => {
+    if (state.tripId === null) suggestTripName();
+  });
+  el.tripName.addEventListener('change', async () => {
+    const name = el.tripName.value.trim();
+    if (state.tripId === null || !name) return;
+    await Track.updateTrip(state.tripId, { name });
+    renderTrips();
+  });
 
   // Beim Wegschalten oder Schließen nichts verlieren.
   window.addEventListener('pagehide', () => { flushBuffer(); });
@@ -567,6 +587,7 @@
         const name = prompt('Name des Törns', trip.name);
         if (name && name.trim()) {
           await Track.updateTrip(trip.id, { name: name.trim() });
+          if (trip.id === state.tripId) el.tripName.value = name.trim();
           renderTrips();
         }
       } else if (btn.dataset.act === 'delete') {
@@ -695,6 +716,7 @@
   el.recMode.value = Object.prototype.hasOwnProperty.call(REC_MODES, savedMode) ? savedMode : 'normal';
   state.minDist = REC_MODES[el.recMode.value];
   el.dawarichUrl.value = store.get('dawarichUrl', '');
+  suggestTripName();
   setFollow(true);
   initMap();
   updateNet();

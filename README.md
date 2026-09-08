@@ -16,8 +16,9 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
   laufen komplett ohne Netz. Bereits geladene Kartenkacheln bleiben verfügbar.
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
 - **Track-Aufzeichnung**: jeder Törn landet in IndexedDB und übersteht Neuladen
-  und Appwechsel. Export als **GPX** oder **GeoJSON**, auf dem Handy über den
-  Teilen-Dialog – von dort z.B. nach Dawarich.
+  und Appwechsel. Benennbar vor dem Start, während der Fahrt und danach; der
+  Name steckt im Dateinamen. Export als **GPX** oder **GeoJSON**, auf dem Handy
+  über den Teilen-Dialog – von dort z.B. nach Dawarich.
 
 ## Technik
 
@@ -65,7 +66,7 @@ so verlangt es die [OSM Tile Usage Policy](https://operations.osmfoundation.org/
 Für regelmäßige Nutzung auf See empfiehlt sich ein eigener Tile-Server oder ein
 kommerzieller Anbieter; dafür genügt es, die URL in `js/app.js` zu ändern.
 
-## Track aufzeichnen, exportieren, hochladen
+## Track aufzeichnen und weitergeben
 
 Zwischen **Start** und **Stopp** wird ein Törn aufgezeichnet. Gespeichert wird
 nicht jeder Fix, sondern gefiltert nach Strecke und Zeit – einstellbar von
@@ -78,41 +79,47 @@ offen gebliebener Törn wird beim nächsten Start sauber abgeschlossen.
 **Zurücksetzen** während der Fahrt schließt den laufenden Törn ab und beginnt
 einen neuen – praktisch, um einen Schlag getrennt zu erfassen.
 
-Jeder Törn in der Liste lässt sich umbenennen, als **GPX** oder **GeoJSON**
-ausgeben und löschen. Auf dem Handy öffnet der Export den Teilen-Dialog
-(AirDrop, Mail, Dateien), sonst lädt die Datei herunter. Das GPX enthält
-Zeit, Höhe sowie Geschwindigkeit und Kurs als `TrackPointExtension`.
+### Törnname
+
+Das Feld **Törnname** benennt den Törn, der als Nächstes aufgezeichnet wird.
+Bleibt es leer, gilt der Vorschlag aus dem Platzhalter: `Törn` mit Datum und
+Uhrzeit. Während der Aufzeichnung zeigt das Feld den laufenden Törn und
+benennt ihn beim Ändern um; später geht das auch durch Antippen des Namens in
+der Liste.
+
+Der Name landet im Dateinamen des Exports und in der Datei selbst, also
+zum Beispiel `boatspeed-20260908-1011-Kiel-Marstal.gpx`. Umlaute und
+Sonderzeichen werden für den Dateinamen ersetzt, im Track selbst bleiben sie
+erhalten.
+
+### Export
+
+Jeder Törn in der Liste lässt sich als **GeoJSON** oder **GPX** ausgeben und
+löschen. Auf dem Handy öffnet der erste Knopf den Teilen-Dialog (Dateien,
+Mail, Cloud …) und heißt dort **Teilen**; am Rechner lädt er die Datei
+herunter und heißt **GeoJSON**.
+
+Beide Formate enthalten Zeit, Position, Höhe, Geschwindigkeit, Kurs und
+Messgenauigkeit – im GPX als `TrackPointExtension`, im GeoJSON als
+Eigenschaften je Punkt (`speed` in m/s, `heading`, `accuracy`). GPX ist das
+universelle Format für OpenCPN, Garmin und Auswertungswerkzeuge; GeoJSON
+liest Dawarich beim Import mit den meisten Feldern ein.
 
 ### Weitergabe an Dawarich
 
-Der Track verlässt die App ausschließlich über den **Teilen-Knopf** – die App
-selbst spricht Dawarich nicht an. Das ist eine bewusste Entscheidung:
+Der Track verlässt die App ausschließlich über Teilen beziehungsweise
+Herunterladen. Dadurch liegt **kein Geheimnis auf dem Webspace** – die App
+besteht nur aus statischen Dateien und darf ohne Bedenken öffentlich liegen.
 
-- Es liegt **kein Geheimnis auf dem Webspace**. Die App besteht nur aus
-  statischen Dateien und darf ohne Bedenken öffentlich liegen.
-- Ein Dawarich-API-Key hätte auf einem Handy ohnehin nichts verloren, und ein
-  direkter Aufruf wäre technisch gar nicht möglich: Dawarich sendet für seine
-  authentifizierte API bewusst keine CORS-Header
-  (`config/initializers/cors.rb`: „server-to-server and intentionally NOT
-  covered here"), der Browser würde die Anfrage blockieren.
+Auf dem Handy:
 
-Der Weg auf dem Handy:
+1. Beim Törn auf **Teilen** tippen und die Datei ablegen.
+2. Dawarich öffnen und unter *Imports* die Datei hochladen.
 
-1. Beim Törn auf **Teilen** tippen – die App erzeugt ein GeoJSON und öffnet den
-   Teilen-Dialog (Dateien, Mail, Cloud …).
-2. **Dawarich öffnen** tippen; der Knopf erscheint, sobald unter
-   „Dawarich-Adresse" die URL der eigenen Instanz hinterlegt ist. Er führt
-   direkt auf `/imports/new`.
-3. Dort die eben geteilte Datei auswählen.
-
-Die Adresse ist kein Geheimnis, sie liegt nur lokal im Browser. Am Rechner
-heißt der Knopf **GeoJSON** und lädt die Datei herunter statt zu teilen.
-
-**Warum GeoJSON für Dawarich und nicht GPX?** Dawarichs GeoJSON-Import liest
-mehr Felder: Geschwindigkeit in m/s unter `speed`, Kurs unter `heading`,
-Messgenauigkeit unter `accuracy`. Das GPX ist für alles andere gedacht –
-OpenCPN, Garmin, Auswertungswerkzeuge – und trägt Geschwindigkeit und Kurs in
-einer `TrackPointExtension`.
+Wer die Adresse seiner Instanz unter **Dawarich-Adresse** hinterlegt, bekommt
+beim Törn zusätzlich den Knopf **Dawarich öffnen**, der direkt auf die
+Importseite führt – reine Tipparbeit-Ersparnis, ein Lesezeichen tut es
+genauso. Die Adresse liegt nur lokal im Browser.
 
 ## Deployment per SFTP aus GitHub
 

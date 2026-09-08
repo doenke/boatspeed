@@ -83,6 +83,11 @@
 
   <section class="card trips">
     <div class="row">
+      <label for="tripName" class="label">Törnname</label>
+      <input type="text" id="tripName" class="field" maxlength="60"
+             autocomplete="off" enterkeyhint="done">
+    </div>
+    <div class="row">
       <span class="label">Aufgezeichnete Törns</span>
       <span id="tripSummary" class="su">–</span>
     </div>
@@ -117,7 +122,7 @@
     </label>
     <div class="row">
       <label for="dawarichUrl">Dawarich-Adresse</label>
-      <input type="url" id="dawarichUrl" class="token" autocomplete="off"
+      <input type="url" id="dawarichUrl" class="field" autocomplete="off"
              spellcheck="false" inputmode="url" placeholder="https://dawarich…">
     </div>
     <button type="button" id="installBtn" class="chip" hidden>App installieren</button>
