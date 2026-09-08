@@ -17,7 +17,7 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
 - **Track-Aufzeichnung**: jeder Törn landet in IndexedDB und übersteht Neuladen
   und Appwechsel. Export als **GPX** oder **GeoJSON**, auf dem Handy über den
-  Teilen-Dialog. Auf Knopfdruck **Upload zu Dawarich**.
+  Teilen-Dialog – von dort z.B. nach Dawarich.
 
 ## Technik
 
@@ -30,7 +30,7 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 | Offline | Service Worker (`sw.js`): App-Shell vorab, Kacheln „cache first“ |
 | Display an | Screen Wake Lock API, sofern vom Browser unterstützt |
 | Track-Speicher | IndexedDB (`js/track.js`), gepufferte Schreibvorgänge |
-| Dawarich-Upload | PHP-Proxy `api/dawarich.php` → `POST /api/v1/imports` |
+| Export | Web Share API mit Datei, sonst Download über `<a download>` |
 
 Die Sensoren des Handys werden über die Geolocation-API genutzt – das ist die
 Quelle, die auf allen Plattformen Geschwindigkeit und Kurs liefert. Kompass- und
@@ -83,55 +83,36 @@ ausgeben und löschen. Auf dem Handy öffnet der Export den Teilen-Dialog
 (AirDrop, Mail, Dateien), sonst lädt die Datei herunter. Das GPX enthält
 Zeit, Höhe sowie Geschwindigkeit und Kurs als `TrackPointExtension`.
 
-### Upload zu Dawarich
+### Weitergabe an Dawarich
 
-Warum nicht direkt aus der App? Dawarich schickt für seine authentifizierte API
-bewusst keine CORS-Header – im Repository steht dazu ausdrücklich
-„server-to-server and intentionally NOT covered here". Ein `fetch` aus dem
-Browser würde also blockiert. Und der Dawarich-API-Key hätte auf einem Handy
-ohnehin nichts verloren.
+Der Track verlässt die App ausschließlich über den **Teilen-Knopf** – die App
+selbst spricht Dawarich nicht an. Das ist eine bewusste Entscheidung:
 
-Deshalb läuft der Upload über `api/dawarich.php` auf demselben Webspace:
+- Es liegt **kein Geheimnis auf dem Webspace**. Die App besteht nur aus
+  statischen Dateien und darf ohne Bedenken öffentlich liegen.
+- Ein Dawarich-API-Key hätte auf einem Handy ohnehin nichts verloren, und ein
+  direkter Aufruf wäre technisch gar nicht möglich: Dawarich sendet für seine
+  authentifizierte API bewusst keine CORS-Header
+  (`config/initializers/cors.rb`: „server-to-server and intentionally NOT
+  covered here"), der Browser würde die Anfrage blockieren.
 
-```
-App ──(GeoJSON + X-Device-Token)──▶ api/dawarich.php ──(API-Key)──▶ Dawarich
-     gleiche Domain, kein CORS                       POST /api/v1/imports
-```
+Der Weg auf dem Handy:
 
-Der API-Key bleibt auf dem Server. Auf dem Handy liegt nur ein frei gewähltes
-**Gerätetoken**, das sich jederzeit in `api/config.php` austauschen lässt –
-danach ist ein verlorenes Handy wertlos. Ein Törn wird zu genau einem Import in
-Dawarich, benannt nach Datum und Törnname, dort als Einheit sichtbar und
-löschbar.
+1. Beim Törn auf **Teilen** tippen – die App erzeugt ein GeoJSON und öffnet den
+   Teilen-Dialog (Dateien, Mail, Cloud …).
+2. **Dawarich öffnen** tippen; der Knopf erscheint, sobald unter
+   „Dawarich-Adresse" die URL der eigenen Instanz hinterlegt ist. Er führt
+   direkt auf `/imports/new`.
+3. Dort die eben geteilte Datei auswählen.
 
-**Einrichtung:** `api/config.example.php` nach `api/config.php` kopieren,
-Dawarich-URL, API-Key (Dawarich → Profil → Einstellungen) und ein selbst
-erzeugtes Gerätetoken eintragen. Dasselbe Token in der App unter
-„Dawarich-Token" hinterlegen und mit **Verbindung testen** prüfen. Ohne
-`api/config.php` antwortet der Endpunkt mit einem klaren Hinweis, und es bleibt
-beim Export – die App funktioniert vollständig ohne ihn.
+Die Adresse ist kein Geheimnis, sie liegt nur lokal im Browser. Am Rechner
+heißt der Knopf **GeoJSON** und lädt die Datei herunter statt zu teilen.
 
-**Was der Proxy prüft:**
-
-- Gerätetoken zeitkonstant (`hash_equals`); ohne Treffer 403.
-- Der Token muss im Header `X-Device-Token` stehen. Genau das ist zugleich der
-  CSRF-Schutz: eine fremde Website kann diesen Header ohne CORS-Freigabe nicht
-  setzen, und der Endpunkt gibt keine CORS-Header aus.
-- Nur `.gpx`, `.geojson`, `.json`; Dateiname wird bereinigt, Inhalt wird
-  geprüft (GPX muss `<gpx` enthalten, GeoJSON muss als `FeatureCollection`
-  parsen). Der Proxy leitet also keine beliebigen Dateien weiter.
-- Größenlimit (8 MB) und Drosselung (30 Uploads pro Stunde, in
-  `api/data/rate.json`).
-- Das Ziel steht ausschließlich in der Serverkonfiguration – kein offener Relay.
-- `http://` wird nur für `localhost` akzeptiert; sonst ist `https://` Pflicht,
-  damit der API-Key nicht im Klartext über das Netz geht.
-
-Die Geschwindigkeit wird in m/s unter `speed` übergeben, der Kurs als `heading`
-– so liest Dawarichs GeoJSON-Import beides ohne Umrechnung ein.
-
-`api/config.php` und `api/data/` sind vom Deploy ausgenommen und per
-`.htaccess` gegen Abruf geschützt. Auf nginx greift `.htaccess` nicht: dort
-`api/data/` und `api/config.php` in der Serverkonfiguration sperren.
+**Warum GeoJSON für Dawarich und nicht GPX?** Dawarichs GeoJSON-Import liest
+mehr Felder: Geschwindigkeit in m/s unter `speed`, Kurs unter `heading`,
+Messgenauigkeit unter `accuracy`. Das GPX ist für alles andere gedacht –
+OpenCPN, Garmin, Auswertungswerkzeuge – und trägt Geschwindigkeit und Kurs in
+einer `TrackPointExtension`.
 
 ## Deployment auf eigenen Webspace
 

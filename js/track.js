@@ -54,9 +54,7 @@ window.Track = (() => {
       points: 0,
       distance: 0,
       maxSpeed: 0,
-      movingTime: 0,
-      uploadedAt: null,
-      importName: null
+      movingTime: 0
     };
     const db = await open();
     return new Promise((resolve, reject) => {

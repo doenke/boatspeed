@@ -25,8 +25,7 @@
     installBtn: $('installBtn'), mapNote: $('mapNote'),
     smooth: $('smooth'), night: $('night'), keepAwake: $('keepAwake'),
     tripList: $('tripList'), tripSummary: $('tripSummary'),
-    recMode: $('recMode'), devToken: $('devToken'),
-    pingBtn: $('pingBtn'), pingResult: $('pingResult')
+    recMode: $('recMode'), dawarichUrl: $('dawarichUrl')
   };
 
   const store = {
@@ -59,8 +58,7 @@
     tripId: null,
     buffer: [],
     lastStored: null,
-    minDist: 5,
-    uploading: false
+    minDist: 5
   };
 
   // Wie dicht wird aufgezeichnet? Kleinster Abstand in Metern, "aus" = nicht.
@@ -529,12 +527,6 @@
       live.className = 'badge badge-live';
       live.textContent = 'läuft';
       head.appendChild(live);
-    } else if (trip.uploadedAt) {
-      const up = document.createElement('span');
-      up.className = 'badge badge-live';
-      up.textContent = 'hochgeladen';
-      up.title = 'In Dawarich als „' + (trip.importName || trip.name) + '“';
-      head.appendChild(up);
     }
     li.appendChild(head);
 
@@ -545,16 +537,20 @@
 
     const actions = document.createElement('div');
     actions.className = 'trip-actions';
-    [['gpx', 'GPX'], ['geojson', 'GeoJSON'], ['upload', 'Dawarich'], ['delete', 'Löschen']]
-      .forEach(([act, label]) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'chip' + (act === 'delete' ? ' danger' : '');
-        b.dataset.act = act;
-        b.textContent = label;
-        if (!trip.points) b.disabled = act !== 'delete';
-        actions.appendChild(b);
-      });
+    // Auf dem Handy öffnet der Export den Teilen-Dialog, am Rechner lädt er
+    // die Datei herunter – die Beschriftung sagt, was passiert.
+    const buttons = [['geojson', canShareFiles() ? 'Teilen' : 'GeoJSON'], ['gpx', 'GPX']];
+    if (dawarichBase()) buttons.push(['dawarich', 'Dawarich öffnen']);
+    buttons.push(['delete', 'Löschen']);
+    buttons.forEach(([act, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (act === 'delete' ? ' danger' : '');
+      b.dataset.act = act;
+      b.textContent = label;
+      if (!trip.points) b.disabled = act !== 'delete';
+      actions.appendChild(b);
+    });
     li.appendChild(actions);
     return li;
   }
@@ -582,8 +578,8 @@
           await Track.deleteTrip(trip.id);
           renderTrips();
         }
-      } else if (btn.dataset.act === 'upload') {
-        await uploadTrip(trip, btn);
+      } else if (btn.dataset.act === 'dawarich') {
+        openDawarichImport();
       } else {
         await exportTrip(trip, btn.dataset.act);
       }
@@ -605,6 +601,15 @@
       name: Track.fileName(trip, gpx ? 'gpx' : 'geojson'),
       count: points.length
     };
+  }
+
+  function canShareFiles() {
+    if (typeof File !== 'function' || !navigator.canShare) return false;
+    try {
+      return navigator.canShare({ files: [new File([''], 'probe.txt', { type: 'text/plain' })] });
+    } catch (err) {
+      return false;
+    }
   }
 
   async function exportTrip(trip, kind) {
@@ -631,70 +636,42 @@
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
-  /* ---------- Upload zu Dawarich ---------- */
+  /* ---------- Dawarich ---------- */
 
-  const deviceToken = () => (store.get('devToken', '') || '').trim();
+  /* Die App spricht Dawarich nicht selbst an: dessen API sendet für
+     authentifizierte Aufrufe bewusst keine CORS-Header, und ein API-Key hätte
+     auf dem Gerät ohnehin nichts verloren. Der Track geht deshalb über den
+     Teilen-Dialog; dieser Knopf öffnet nur die passende Importseite. Die
+     Adresse ist kein Geheimnis – die App bleibt rein statisch. */
+  const dawarichBase = () => (store.get('dawarichUrl', '') || '').trim().replace(/\/+$/, '');
 
-  async function uploadTrip(trip, btn) {
-    if (state.uploading) return;
-    if (!deviceToken()) {
-      toast('Bitte zuerst das Dawarich-Token in den Einstellungen eintragen.');
-      el.devToken.focus();
-      return;
-    }
-    const { blob, name, count } = await buildExport(trip, 'geojson');
-    const body = new FormData();
-    body.append('file', blob, name);
-
-    state.uploading = true;
-    const label = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'lädt …';
-    try {
-      const res = await fetch('api/dawarich.php', {
-        method: 'POST',
-        headers: { 'X-Device-Token': deviceToken() },
-        body
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Upload fehlgeschlagen (HTTP ' + res.status + ').');
-      }
-      await Track.updateTrip(trip.id, { uploadedAt: Date.now(), importName: data.name || null });
-      toast(`„${trip.name}“ mit ${count} Punkten an Dawarich übergeben.`);
-      renderTrips();
-    } catch (err) {
-      const offline = !navigator.onLine;
-      toast(offline ? 'Offline – der Upload klappt, sobald wieder Netz da ist.' : err.message);
-    } finally {
-      state.uploading = false;
-      btn.disabled = false;
-      btn.textContent = label;
-    }
+  function openDawarichImport() {
+    const base = dawarichBase();
+    if (!base) return;
+    window.open(base + '/imports/new', '_blank', 'noopener');
   }
 
-  el.pingBtn.addEventListener('click', async () => {
-    if (!deviceToken()) {
-      el.pingResult.textContent = 'kein Token';
-      return;
+  el.dawarichUrl.addEventListener('change', () => {
+    let value = el.dawarichUrl.value.trim();
+    if (value && !/^https?:\/\//i.test(value)) value = 'https://' + value;
+    if (value) {
+      let url;
+      try {
+        url = new URL(value);
+      } catch (err) {
+        url = null;
+      }
+      // Der URL-Parser ist großzügig: "ht!tp://x" ergibt einen gültigen Host.
+      // Deshalb Schema und Hostname zusätzlich selbst prüfen.
+      if (!url || !/^https?:$/.test(url.protocol) || !/^[a-z0-9.-]+$/i.test(url.hostname)) {
+        toast('Das sieht nicht nach einer gültigen Adresse aus.');
+        return;
+      }
+      value = url.origin + url.pathname.replace(/\/+$/, '');
     }
-    el.pingResult.textContent = 'prüfe …';
-    try {
-      const res = await fetch('api/dawarich.php?action=ping', {
-        headers: { 'X-Device-Token': deviceToken() }
-      });
-      const data = await res.json().catch(() => ({}));
-      el.pingResult.textContent = res.ok && data.ok && data.reachable
-        ? 'Dawarich erreichbar'
-        : (data.error || 'HTTP ' + res.status);
-    } catch (err) {
-      el.pingResult.textContent = 'Server nicht erreichbar';
-    }
-  });
-
-  el.devToken.addEventListener('change', () => {
-    store.set('devToken', el.devToken.value.trim());
-    el.pingResult.textContent = '';
+    el.dawarichUrl.value = value;
+    store.set('dawarichUrl', value);
+    renderTrips();
   });
 
   el.recMode.addEventListener('change', () => {
@@ -717,7 +694,7 @@
   const savedMode = store.get('recMode', 'normal');
   el.recMode.value = Object.prototype.hasOwnProperty.call(REC_MODES, savedMode) ? savedMode : 'normal';
   state.minDist = REC_MODES[el.recMode.value];
-  el.devToken.value = store.get('devToken', '');
+  el.dawarichUrl.value = store.get('dawarichUrl', '');
   setFollow(true);
   initMap();
   updateNet();
