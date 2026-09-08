@@ -83,11 +83,6 @@
 
   <section class="card trips">
     <div class="row">
-      <label for="tripName" class="label">Törnname</label>
-      <input type="text" id="tripName" class="field" maxlength="60"
-             autocomplete="off" enterkeyhint="done">
-    </div>
-    <div class="row">
       <span class="label">Aufgezeichnete Törns</span>
       <span id="tripSummary" class="su">–</span>
     </div>
@@ -123,6 +118,19 @@
     <button type="button" id="installBtn" class="chip" hidden>App installieren</button>
   </section>
 </main>
+
+<dialog id="dlg" class="dlg" aria-labelledby="dlgTitle">
+  <form method="dialog" class="dlg-form">
+    <h2 id="dlgTitle" class="dlg-title"></h2>
+    <p id="dlgText" class="dlg-text" hidden></p>
+    <input type="text" id="dlgInput" class="field dlg-input" maxlength="60"
+           autocomplete="off" enterkeyhint="done" hidden>
+    <div class="dlg-actions">
+      <button type="submit" value="cancel" class="chip" id="dlgCancel">Abbrechen</button>
+      <button type="submit" value="ok" class="primary" id="dlgOk">Speichern</button>
+    </div>
+  </form>
+</dialog>
 
 <footer class="bar footer">
   <button type="button" id="startBtn" class="primary">Start</button>

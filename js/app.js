@@ -25,7 +25,9 @@
     installBtn: $('installBtn'), mapNote: $('mapNote'),
     smooth: $('smooth'), night: $('night'), keepAwake: $('keepAwake'),
     tripList: $('tripList'), tripSummary: $('tripSummary'),
-    recMode: $('recMode'), tripName: $('tripName')
+    recMode: $('recMode'),
+    dlg: $('dlg'), dlgTitle: $('dlgTitle'), dlgText: $('dlgText'),
+    dlgInput: $('dlgInput'), dlgOk: $('dlgOk')
   };
 
   const store = {
@@ -442,11 +444,9 @@
   async function beginTrip() {
     if (state.minDist === null || state.tripId !== null) return;
     try {
-      // Leer gelassen? Dann Datum und Uhrzeit, wie im Platzhalter angeboten.
-      const trip = await Track.startTrip(el.tripName.value.trim() || undefined);
+      const trip = await Track.startTrip();
       state.tripId = trip.id;
       state.lastStored = null;
-      el.tripName.value = trip.name;
       renderTrips();
     } catch (err) {
       toast('Aufzeichnung nicht möglich: ' + err.message);
@@ -470,26 +470,8 @@
     try {
       await Track.updateTrip(id, stats);
     } catch (err) { /* Törn bleibt notfalls offen und wird beim Start repariert */ }
-    el.tripName.value = '';
-    suggestTripName();
     renderTrips();
   }
-
-  /** Der Platzhalter zeigt, welcher Name ohne Eingabe verwendet würde. */
-  function suggestTripName() {
-    el.tripName.placeholder = Track.defaultName(new Date());
-  }
-
-  // Während der Aufzeichnung benennt das Feld den laufenden Törn um.
-  el.tripName.addEventListener('focus', () => {
-    if (state.tripId === null) suggestTripName();
-  });
-  el.tripName.addEventListener('change', async () => {
-    const name = el.tripName.value.trim();
-    if (state.tripId === null || !name) return;
-    await Track.updateTrip(state.tripId, { name });
-    renderTrips();
-  });
 
   // Beim Wegschalten oder Schließen nichts verlieren.
   window.addEventListener('pagehide', () => { flushBuffer(); });
@@ -586,14 +568,23 @@
 
     try {
       if (btn.dataset.act === 'rename') {
-        const name = prompt('Name des Törns', trip.name);
-        if (name && name.trim()) {
-          await Track.updateTrip(trip.id, { name: name.trim() });
-          if (trip.id === state.tripId) el.tripName.value = name.trim();
+        const name = await ask({
+          title: 'Törn umbenennen',
+          value: trip.name,
+          okLabel: 'Übernehmen'
+        });
+        if (name) {
+          await Track.updateTrip(trip.id, { name });
           renderTrips();
         }
       } else if (btn.dataset.act === 'delete') {
-        if (confirm(`„${trip.name}“ mit ${trip.points || 0} Punkten endgültig löschen?`)) {
+        const ok = await ask({
+          title: 'Törn löschen?',
+          text: `„${trip.name}“ mit ${trip.points || 0} Punkten wird endgültig entfernt.`,
+          okLabel: 'Löschen',
+          danger: true
+        });
+        if (ok) {
           if (trip.id === state.tripId) {
             state.tripId = null;
             state.buffer = [];
@@ -607,6 +598,46 @@
     } catch (err) {
       toast(err.message || String(err));
     }
+  });
+
+  /* ---------- Dialog ---------- */
+
+  /**
+   * Eigener Dialog statt prompt()/confirm(): Mit "value" fragt er einen Text
+   * ab und liefert ihn zurück, ohne "value" ist er eine Rückfrage und liefert
+   * true. Abbruch, Escape und ein Klick neben den Dialog ergeben null.
+   */
+  function ask({ title, text, value, okLabel, danger }) {
+    const wantsText = typeof value === 'string';
+    el.dlgTitle.textContent = title;
+    el.dlgText.textContent = text || '';
+    el.dlgText.hidden = !text;
+    el.dlgInput.hidden = !wantsText;
+    el.dlgInput.value = wantsText ? value : '';
+    el.dlgOk.textContent = okLabel || 'Speichern';
+    el.dlgOk.classList.toggle('danger-btn', !!danger);
+
+    return new Promise((resolve) => {
+      const onClose = () => {
+        el.dlg.removeEventListener('close', onClose);
+        if (el.dlg.returnValue !== 'ok') { resolve(null); return; }
+        resolve(wantsText ? el.dlgInput.value.trim() : true);
+      };
+      el.dlg.addEventListener('close', onClose);
+      el.dlg.returnValue = '';
+      el.dlg.showModal();
+      if (wantsText) {
+        el.dlgInput.focus();
+        el.dlgInput.select();
+      } else {
+        el.dlgOk.focus();
+      }
+    });
+  }
+
+  // Klick auf den Hintergrund schließt den Dialog wie ein Abbruch.
+  el.dlg.addEventListener('click', (ev) => {
+    if (ev.target === el.dlg) el.dlg.close('cancel');
   });
 
   /* ---------- Export ---------- */
@@ -677,7 +708,6 @@
   const savedMode = store.get('recMode', 'normal');
   el.recMode.value = Object.prototype.hasOwnProperty.call(REC_MODES, savedMode) ? savedMode : 'normal';
   state.minDist = REC_MODES[el.recMode.value];
-  suggestTripName();
   setFollow(true);
   initMap();
   updateNet();

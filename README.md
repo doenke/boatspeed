@@ -81,11 +81,9 @@ einen neuen – praktisch, um einen Schlag getrennt zu erfassen.
 
 ### Törnname
 
-Das Feld **Törnname** benennt den Törn, der als Nächstes aufgezeichnet wird.
-Bleibt es leer, gilt der Vorschlag aus dem Platzhalter: `Törn` mit Datum und
-Uhrzeit. Während der Aufzeichnung zeigt das Feld den laufenden Törn und
-benennt ihn beim Ändern um; später geht das auch durch Antippen des Namens in
-der Liste.
+Jeder Törn bekommt beim Start automatisch einen Namen aus `Törn` sowie Datum
+und Uhrzeit. Antippen des Namens in der Liste öffnet einen Dialog zum
+Umbenennen – während der Fahrt genauso wie danach.
 
 Der Name landet im Dateinamen des Exports und in der Datei selbst, also
 zum Beispiel `boatspeed-20260908-1011-Kiel-Marstal.gpx`. Umlaute und
