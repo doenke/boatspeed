@@ -42,7 +42,8 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-const isTile = (url) => /(^|\.)(tile\.openstreetmap\.org|tile\.osm\.org)$/.test(url.hostname);
+const isTile = (url) =>
+  /(^|\.)(tile\.openstreetmap\.org|tile\.osm\.org|openseamap\.org)$/.test(url.hostname);
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;

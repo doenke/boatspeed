@@ -26,6 +26,24 @@
 </header>
 
 <main>
+  <section class="card mob-card" id="mobCard" hidden>
+    <div class="mob-head">
+      <span class="label">Mann über Bord</span>
+      <span id="mobAge" class="su">–</span>
+    </div>
+    <div class="mob-figures">
+      <div class="stat"><span class="label">Peilung</span>
+        <span class="val"><output id="mobBearing">---</output><span class="su">°</span></span></div>
+      <div class="stat"><span class="label">Distanz</span>
+        <span class="val"><output id="mobDistance">–</output><span class="su" id="mobDistUnit">m</span></span></div>
+      <div class="stat"><span class="label">Position</span>
+        <span class="val"><output id="mobPos" class="mob-pos">–</output></span></div>
+    </div>
+    <div class="mob-actions">
+      <button type="button" id="mobClearBtn" class="chip danger">Markierung löschen</button>
+    </div>
+  </section>
+
   <section class="card speed-card">
     <div class="speed-row">
       <output id="speed" class="speed">--.-</output>
@@ -78,7 +96,10 @@
   <section class="card map-card">
     <div id="map"></div>
     <div id="mapNote" class="map-note" hidden></div>
-    <button type="button" id="followBtn" class="chip follow-btn" aria-pressed="true">Folgen</button>
+    <div class="map-buttons">
+      <button type="button" id="seamarkBtn" class="chip" aria-pressed="false">Seezeichen</button>
+      <button type="button" id="followBtn" class="chip" aria-pressed="true">Folgen</button>
+    </div>
   </section>
 
   <section class="card trips">
@@ -106,6 +127,14 @@
       <span>Display anlassen</span>
       <input type="checkbox" id="keepAwake" checked>
     </label>
+    <label class="row">
+      <span>Sparmodus</span>
+      <input type="checkbox" id="ecoMode">
+    </label>
+    <p id="ecoNote" class="hint eco-note" hidden>
+      Karte aus, Anzeige gedrosselt und abgedunkelt. Ortung und Aufzeichnung
+      laufen unverändert weiter, es werden keine Kacheln mehr geladen.
+    </p>
     <label class="row">
       <span>Aufzeichnung</span>
       <select id="recMode">
@@ -135,6 +164,7 @@
 <footer class="bar footer">
   <button type="button" id="startBtn" class="primary">Start</button>
   <button type="button" id="resetBtn" class="ghost">Zurücksetzen</button>
+  <button type="button" id="mobBtn" class="mob-btn" title="Position sofort markieren">MOB</button>
 </footer>
 
 <script src="vendor/leaflet/leaflet.js"></script>

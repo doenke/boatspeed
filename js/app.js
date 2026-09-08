@@ -27,7 +27,11 @@
     tripList: $('tripList'), tripSummary: $('tripSummary'),
     recMode: $('recMode'),
     dlg: $('dlg'), dlgTitle: $('dlgTitle'), dlgText: $('dlgText'),
-    dlgInput: $('dlgInput'), dlgOk: $('dlgOk')
+    dlgInput: $('dlgInput'), dlgOk: $('dlgOk'),
+    seamarkBtn: $('seamarkBtn'), ecoMode: $('ecoMode'), ecoNote: $('ecoNote'),
+    mobBtn: $('mobBtn'), mobCard: $('mobCard'), mobAge: $('mobAge'),
+    mobBearing: $('mobBearing'), mobDistance: $('mobDistance'),
+    mobDistUnit: $('mobDistUnit'), mobPos: $('mobPos'), mobClearBtn: $('mobClearBtn')
   };
 
   const store = {
@@ -60,8 +64,15 @@
     tripId: null,
     buffer: [],
     lastStored: null,
-    minDist: 5
+    minDist: 5,
+    seamarks: false,
+    eco: false,
+    mob: null,           // { lat, lon, t }
+    lastRender: 0
   };
+
+  // Im Sparmodus wird die Anzeige nur noch im Sekundentakt neu gezeichnet.
+  const ECO_RENDER_MS = 1000;
 
   // Wie dicht wird aufgezeichnet? Kleinster Abstand in Metern, "aus" = nicht.
   const REC_MODES = { fein: 2, normal: 5, sparsam: 25, aus: null };
@@ -123,7 +134,12 @@
   })();
 
   /* ---------- Karte ---------- */
-  let map = null, marker = null, trackLine = null, tiles = null;
+  let map = null, marker = null, trackLine = null, tiles = null, seamarks = null, mobMarker = null;
+
+  // Ein 1x1 durchsichtiges PNG: fehlende Seezeichen-Kacheln sollen die Karte
+  // nicht mit Fehlerbildern übersäen.
+  const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAA'
+    + 'AC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
   function initMap() {
     if (map || typeof L === 'undefined') return;
@@ -132,6 +148,17 @@
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'
     }).addTo(map);
+
+    // Seezeichen von OpenSeaMap: durchsichtige Kacheln, die nur Tonnen, Feuer
+    // und Hafensymbole enthalten – sie gehören über die Grundkarte, nicht
+    // an deren Stelle.
+    seamarks = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      maxNativeZoom: 18,
+      opacity: 1,
+      errorTileUrl: BLANK_TILE,
+      attribution: '&copy; <a href="https://www.openseamap.org/">OpenSeaMap</a>-Mitwirkende'
+    });
     trackLine = L.polyline([], { color: '#38bdf8', weight: 3, opacity: .85 }).addTo(map);
     marker = L.marker([54.32, 10.14], {
       icon: L.divIcon({
@@ -145,8 +172,12 @@
   }
 
   function updateMap(lat, lon, cog) {
-    if (!map) return;
     const p = [lat, lon];
+    state.track.push(p);
+    if (state.track.length > MAX_TRACK_POINTS) state.track.shift();
+    // Im Sparmodus ist die Karte ausgeblendet; der Track wird trotzdem
+    // mitgeführt, damit er beim Zurückschalten vollständig da ist.
+    if (!map || state.eco) return;
     if (!marker._map) marker.addTo(map);
     marker.setLatLng(p);
     // Nur das SVG drehen – die Transform des Icon-Containers gehört Leaflet.
@@ -154,11 +185,18 @@
     const svg = icon && icon.querySelector('svg');
     if (svg) svg.style.transform = cog === null ? '' : `rotate(${cog}deg)`;
 
-    state.track.push(p);
-    if (state.track.length > MAX_TRACK_POINTS) state.track.shift();
     trackLine.setLatLngs(state.track);
 
     if (state.follow) map.setView(p, Math.max(map.getZoom(), 14), { animate: true });
+  }
+
+  function setSeamarks(on) {
+    state.seamarks = on;
+    el.seamarkBtn.setAttribute('aria-pressed', String(on));
+    store.set('seamarks', on ? '1' : '0');
+    if (!seamarks || !map) return;
+    if (on && !map.hasLayer(seamarks)) seamarks.addTo(map);
+    if (!on && map.hasLayer(seamarks)) map.removeLayer(seamarks);
   }
 
   function setFollow(on) {
@@ -254,7 +292,15 @@
 
     setBadge('live', 'GPS aktiv');
     updateMap(fix.lat, fix.lon, state.cog);
-    render();
+    if (state.mob) renderMOB();
+
+    // Im Sparmodus reicht eine Aktualisierung je Sekunde; jeder Neuaufbau
+    // der Anzeige kostet Rechenzeit und damit Akku.
+    const tNow = Date.now();
+    if (!state.eco || tNow - state.lastRender >= ECO_RENDER_MS) {
+      state.lastRender = tNow;
+      render();
+    }
   }
 
   function onError(err) {
@@ -334,7 +380,10 @@
   let timer = null;
   function tick() {
     clearInterval(timer);
-    timer = setInterval(() => { if (state.startedAt) el.dur.textContent = fmtDuration(elapsed()); }, 1000);
+    timer = setInterval(() => {
+      if (state.startedAt) el.dur.textContent = fmtDuration(elapsed());
+      if (state.mob) el.mobAge.textContent = 'vor ' + fmtDuration((Date.now() - state.mob.t) / 1000);
+    }, 1000);
   }
 
   /* ---------- Wake Lock ---------- */
@@ -600,6 +649,121 @@
     }
   });
 
+  /* ---------- Mann über Bord ---------- */
+
+  /* Ein Druck genügt: in der Lage zählt jede Sekunde, also keine Rückfrage.
+     Das Löschen dagegen wird abgefragt, damit die Marke nicht versehentlich
+     verschwindet. Sie überlebt Neuladen und Appwechsel. */
+  function markMOB() {
+    const fix = state.last;
+    if (!fix) {
+      toast('Noch keine Position – ohne GPS-Fix lässt sich nichts markieren.');
+      return;
+    }
+    state.mob = { lat: fix.lat, lon: fix.lon, t: Date.now() };
+    store.set('mob', JSON.stringify(state.mob));
+    renderMOB();
+    el.mobCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  async function clearMOB() {
+    const ok = await ask({
+      title: 'Markierung löschen?',
+      text: 'Die MOB-Position geht verloren.',
+      okLabel: 'Löschen',
+      danger: true
+    });
+    if (!ok) return;
+    state.mob = null;
+    store.set('mob', '');
+    renderMOB();
+  }
+
+  /** Peilung, Distanz und Alter der Marke – wird bei jedem Fix aufgefrischt. */
+  function renderMOB() {
+    const mob = state.mob;
+    el.mobCard.hidden = !mob;
+    // Beschriftung bleibt kurz und konstant; gesetzt oder nicht zeigt der
+    // Rahmen. Ein erneuter Druck versetzt die Marke auf die jetzige Position.
+    el.mobBtn.classList.toggle('armed', !!mob);
+    el.mobBtn.title = mob
+      ? 'Markierung auf die aktuelle Position versetzen'
+      : 'Aktuelle Position sofort markieren';
+
+    if (mobMarker && map && map.hasLayer(mobMarker) && !mob) {
+      map.removeLayer(mobMarker);
+    }
+    if (!mob) return;
+
+    if (state.last) {
+      const d = haversine(state.last, mob);
+      el.mobDistance.textContent = d < 1852 ? Math.round(d) : (d / 1852).toFixed(2);
+      el.mobDistUnit.textContent = d < 1852 ? 'm' : 'sm';
+      const brg = bearing(state.last, mob);
+      el.mobBearing.textContent = String(Math.round(brg) % 360).padStart(3, '0');
+    } else {
+      el.mobDistance.textContent = '–';
+      el.mobBearing.textContent = '---';
+    }
+    el.mobPos.textContent = formatPosition(mob.lat, mob.lon);
+    el.mobAge.textContent = 'vor ' + fmtDuration((Date.now() - mob.t) / 1000);
+
+    if (map && !state.eco) {
+      if (!mobMarker) {
+        mobMarker = L.marker([mob.lat, mob.lon], {
+          icon: L.divIcon({
+            className: 'mob-icon',
+            html: '<svg width="30" height="30" viewBox="0 0 30 30">'
+                + '<circle cx="15" cy="15" r="11" fill="none" stroke="#f87171" stroke-width="3"/>'
+                + '<line x1="15" y1="3" x2="15" y2="27" stroke="#f87171" stroke-width="3"/>'
+                + '<line x1="3" y1="15" x2="27" y2="15" stroke="#f87171" stroke-width="3"/></svg>',
+            iconSize: [30, 30], iconAnchor: [15, 15]
+          })
+        });
+      }
+      mobMarker.setLatLng([mob.lat, mob.lon]);
+      if (!map.hasLayer(mobMarker)) mobMarker.addTo(map);
+    }
+  }
+
+  /** Grad und Dezimalminuten – so steht es auch in der Seekarte. */
+  function formatPosition(lat, lon) {
+    const part = (value, positive, negative, degDigits) => {
+      const hemisphere = value >= 0 ? positive : negative;
+      const abs = Math.abs(value);
+      const deg = Math.floor(abs);
+      const min = (abs - deg) * 60;
+      return `${String(deg).padStart(degDigits, '0')}° ${min.toFixed(3).padStart(6, '0')}' ${hemisphere}`;
+    };
+    return part(lat, 'N', 'S', 2) + ' / ' + part(lon, 'E', 'W', 3);
+  }
+
+  el.mobBtn.addEventListener('click', markMOB);
+  el.mobClearBtn.addEventListener('click', clearMOB);
+
+  /* ---------- Sparmodus ---------- */
+
+  /* Der größte Verbraucher ist das Display, danach das Nachladen und Zeichnen
+     der Karte. Beides lässt sich abschalten, ohne die Ortung anzutasten –
+     die läuft unverändert weiter, ebenso die Aufzeichnung. */
+  function setEco(on) {
+    state.eco = on;
+    document.body.classList.toggle('eco', on);
+    el.ecoNote.hidden = !on;
+    el.ecoMode.checked = on;
+    store.set('eco', on ? '1' : '0');
+    if (!on && map) {
+      // Beim Zurückschalten die Karte auf den aktuellen Stand bringen.
+      map.invalidateSize();
+      if (trackLine) trackLine.setLatLngs(state.track);
+      if (state.last) updateMap(state.last.lat, state.last.lon, state.cog);
+      renderMOB();
+    }
+  }
+
+  el.ecoMode.addEventListener('change', () => setEco(el.ecoMode.checked));
+  el.seamarkBtn.addEventListener('click', () => setSeamarks(!state.seamarks));
+
   /* ---------- Dialog ---------- */
 
   /**
@@ -710,8 +874,18 @@
   state.minDist = REC_MODES[el.recMode.value];
   setFollow(true);
   initMap();
+  setSeamarks(store.get('seamarks', '0') === '1');
+  setEco(store.get('eco', '0') === '1');
   updateNet();
   render();
+
+  // Eine gesetzte MOB-Marke überlebt Neuladen und Appwechsel.
+  try {
+    const saved = JSON.parse(store.get('mob', '') || 'null');
+    if (saved && isFinite(saved.lat) && isFinite(saved.lon)) state.mob = saved;
+  } catch (err) { /* beschädigter Eintrag wird verworfen */ }
+  renderMOB();
+  tick();
 
   // Nach einem Absturz offen gebliebene Törns schließen, dann Liste zeigen.
   Track.closeDangling().then(renderTrips).catch(() => renderTrips());

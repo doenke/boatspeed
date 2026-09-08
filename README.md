@@ -11,7 +11,12 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 - **Geschwindigkeit** in **m/s**, **km/h** oder **kn**, umschaltbar; die Auswahl wird gespeichert.
 - **Kurs über Grund (COG)** in Grad plus Kompassrose und Himmelsrichtung.
 - **Fahrtdaten**: Durchschnitt, Maximum, Distanz (sm), Dauer, GPS-Genauigkeit, Höhe.
-- **Karte**: OpenStreetMap mit Track und mitdrehendem Bootssymbol; „Folgen“ zentriert automatisch.
+- **Karte**: OpenStreetMap mit Track und mitdrehendem Bootssymbol; „Folgen“ zentriert
+  automatisch. Zuschaltbare **Seezeichen** von OpenSeaMap – Tonnen, Feuer, Häfen.
+- **MOB**: ein Druck markiert die Position; danach laufend Peilung, Distanz und
+  Alter der Marke, dazu ein Kreuz auf der Karte.
+- **Sparmodus**: Karte aus, Anzeige gedrosselt und abgedunkelt – Ortung und
+  Aufzeichnung laufen unverändert weiter.
 - **Offline**: App-Shell und Leaflet liegen lokal im Cache, Geschwindigkeit und Kurs
   laufen komplett ohne Netz. Bereits geladene Kartenkacheln bleiben verfügbar.
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
@@ -28,6 +33,7 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 | Fallback ohne `coords.speed`/`coords.heading` | Berechnung aus zwei Fixes (Haversine bzw. Peilung) |
 | Glättung | exponentieller gleitender Mittelwert, dreistufig (aus / leicht / stark) |
 | Karte | Leaflet 1.9.4, lokal eingebunden unter `vendor/leaflet/` |
+| Seezeichen | OpenSeaMap-Kacheln als durchsichtige Ebene über der Grundkarte |
 | Offline | Service Worker (`sw.js`): App-Shell vorab, Kacheln „cache first“ |
 | Display an | Screen Wake Lock API, sofern vom Browser unterstützt |
 | Track-Speicher | IndexedDB (`js/track.js`), gepufferte Schreibvorgänge |
@@ -56,6 +62,38 @@ Zum Ausprobieren am Rechner genügt `python3 -m http.server 8000` und
 `http://localhost:8000` – localhost gilt dem Browser als sicher genug für den
 Standortzugriff.
 
+## Mann über Bord
+
+Der rote **MOB**-Knopf in der Fußzeile hält die aktuelle Position fest –
+ohne Rückfrage, weil in dieser Lage jede Sekunde zählt. Danach steht oben in
+der App eine Karte mit **Peilung**, **Distanz** und **Alter** der Markierung,
+die Position in Grad und Dezimalminuten zum Absetzen über Funk, und auf der
+Karte ein rotes Kreuz.
+
+Ein erneuter Druck versetzt die Marke auf die jetzige Position. Das Löschen
+fragt nach. Die Markierung übersteht Neuladen und Appwechsel; sie bleibt also
+auch bestehen, wenn das Handy zwischendurch neu startet.
+
+Ohne Positionsfix lässt sich nichts markieren – dann sagt die App das auch.
+
+## Sparmodus
+
+GPS und Display leeren einen Handyakku in wenigen Stunden. Der Sparmodus
+setzt an dem an, was eine Web-App tatsächlich beeinflussen kann:
+
+- **Karte aus.** Keine Kacheln mehr laden, nichts mehr zeichnen. Das spart
+  Rechenzeit und unterwegs auch Mobilfunkdaten.
+- **Anzeige gedrosselt** auf eine Aktualisierung je Sekunde statt bei jedem Fix.
+- **Abgedunkelte Flächen**, was auf OLED-Displays messbar Strom spart.
+
+**Ortung und Aufzeichnung laufen unverändert weiter** – die Genauigkeit wird
+nicht heruntergesetzt, es gehen keine Punkte verloren. Beim Zurückschalten ist
+der Track vollständig da, er wurde die ganze Zeit mitgeführt.
+
+Was der Sparmodus *nicht* kann: das Display abschalten und im Hintergrund
+weiterlaufen. Sobald der Browser die Seite einfriert, steht die Aufzeichnung –
+das ist eine Grenze der Plattform, keine Einstellungssache.
+
 ## Genauigkeit
 
 - `coords.speed` kommt direkt vom GNSS-Empfänger (Doppler) und ist deutlich genauer
@@ -67,9 +105,15 @@ Standortzugriff.
 
 ## Karten-Kacheln
 
-Es werden die Kacheln von `tile.openstreetmap.org` verwendet und nur die Kacheln
-gespeichert, die tatsächlich angezeigt wurden (kein Vorab-Download ganzer Reviere) –
-so verlangt es die [OSM Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/).
+Als Grundkarte dienen die Kacheln von `tile.openstreetmap.org`, die Seezeichen
+kommen von `tiles.openseamap.org`. Letztere sind eine **durchsichtige Ebene**:
+Sie enthalten nur Symbole und liegen deshalb über der Grundkarte, statt sie zu
+ersetzen – allein wären es Tonnen im Nichts. Der Knopf **Seezeichen** an der
+Karte schaltet sie zu, die Auswahl wird gespeichert.
+
+Zwischengespeichert wird beides, aber nur das, was tatsächlich angezeigt
+wurde – kein Vorab-Download ganzer Reviere, so verlangt es die
+[OSM Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/).
 Für regelmäßige Nutzung auf See empfiehlt sich ein eigener Tile-Server oder ein
 kommerzieller Anbieter; dafür genügt es, die URL in `js/app.js` zu ändern.
 

@@ -155,7 +155,52 @@ body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
   font-size: .78rem;
   color: var(--muted);
 }
-.follow-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
+.map-buttons {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  display: flex;
+  gap: 6px;
+}
+.map-buttons .chip { background: var(--card); }
+
+/* --- Mann über Bord --- */
+.mob-card {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 12%, var(--card));
+}
+.mob-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.mob-head .label { color: var(--bad); font-weight: 600; }
+.mob-figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 6px; }
+.mob-figures output { font-size: 1.5rem; }
+.mob-pos { font-size: .8rem !important; font-variant-numeric: tabular-nums; line-height: 1.25; text-align: center; }
+.mob-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+.mob-btn {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: var(--bad);
+  color: #1a0000;
+  font-weight: 700;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.mob-btn.armed { background: var(--card-2); color: var(--bad); border: 1px solid var(--bad); }
+
+/* --- Sparmodus --- */
+/* Karte und alles Bewegte aus, dunkle Flächen: das Display ist der größte
+   Verbraucher, und ohne Karte werden auch keine Kacheln mehr geladen. */
+body.eco .map-card,
+body.eco .trips,
+body.eco .rose { display: none; }
+body.eco { --card: #0c1119; --card-2: #101823; }
+body.eco .speed { color: var(--fg); }
+body.eco .course-card { justify-content: center; }
+.eco-note { margin: 0; }
 
 /* --- Einstellungen --- */
 .settings { display: grid; gap: 10px; }
