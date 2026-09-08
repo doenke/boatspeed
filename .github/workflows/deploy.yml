@@ -72,6 +72,14 @@ jobs:
         run: |
           set -eu
 
+          # Beim Einfügen in die Secret-Maske rutschen leicht Leerzeichen oder
+          # Zeilenumbrüche mit. Die machen sonst weiter unten das lftp-Skript
+          # kaputt, statt eine verständliche Meldung zu erzeugen.
+          SFTP_HOST=$(printf '%s' "${SFTP_HOST:-}" | tr -d '[:space:]')
+          SFTP_USER=$(printf '%s' "${SFTP_USER:-}" | tr -d '[:space:]')
+          SFTP_PORT=$(printf '%s' "${SFTP_PORT:-22}" | tr -d '[:space:]')
+          REMOTE_DIR=$(printf '%s' "${REMOTE_DIR:-}" | tr -d '\r\n')
+
           for name in SFTP_HOST SFTP_USER REMOTE_DIR; do
             eval "value=\${$name:-}"
             if [ -z "$value" ]; then
@@ -79,6 +87,21 @@ jobs:
               exit 1
             fi
           done
+
+          # Der Benutzername landet unverändert in der ssh-Kommandozeile.
+          case "$SFTP_USER" in
+            *[!A-Za-z0-9._@-]*)
+              echo "::error::SFTP_USER enthält unerwartete Zeichen. Erlaubt sind Buchstaben, Ziffern und . _ - @"
+              exit 1 ;;
+          esac
+          case "$SFTP_HOST" in
+            *[!A-Za-z0-9.-]*)
+              echo "::error::SFTP_HOST enthält unerwartete Zeichen."
+              exit 1 ;;
+          esac
+          case "$SFTP_PORT" in
+            ''|*[!0-9]*) echo "::error::SFTP_PORT muss eine Zahl sein."; exit 1 ;;
+          esac
           if [ -z "${SFTP_KEY:-}" ] && [ -z "${SFTP_PASSWORD:-}" ]; then
             echo "::error::Weder SFTP_KEY noch SFTP_PASSWORD gesetzt."
             exit 1
@@ -89,9 +112,12 @@ jobs:
             "/"|""|".") echo "::error::SFTP_REMOTE_DIR darf nicht das Wurzelverzeichnis sein."; exit 1 ;;
           esac
 
-          SSH_OPTS="-a -x -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          # Der Benutzername gehört an ssh, nicht an lftp: bei "open -u user URL"
+          # ohne Passwort verwirft lftp den Namen und meldet sich anonym an –
+          # ssh verbindet dann als der Runner-Benutzer und scheitert.
+          SSH_OPTS="-a -x -l $SFTP_USER -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
           if [ -n "${SFTP_KEY:-}" ]; then
-            CONNECT="ssh $SSH_OPTS -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes"
+            CONNECT="ssh $SSH_OPTS -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o PreferredAuthentications=publickey"
           else
             export SSHPASS="$SFTP_PASSWORD"
             CONNECT="sshpass -e ssh $SSH_OPTS -o PreferredAuthentications=password -o PubkeyAuthentication=no"
@@ -109,7 +135,7 @@ jobs:
             set net:timeout 20;
             set sftp:auto-confirm no;
             set sftp:connect-program \"$CONNECT\";
-            open -u \"$SFTP_USER\" sftp://$SFTP_HOST:$SFTP_PORT;
+            open sftp://$SFTP_HOST:$SFTP_PORT;
             mirror --reverse --delete --verbose --no-perms $DRY \
                    --exclude '^\.git/' \
                    --exclude '^\.github/' \

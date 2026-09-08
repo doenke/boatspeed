@@ -138,6 +138,12 @@ Repository → Settings → Secrets and variables → Actions:
 Ist `SFTP_KEY` gesetzt, wird der Schlüssel benutzt, sonst das Passwort.
 Schlüssel sind vorzuziehen: sie lassen sich beim Hoster einzeln zurückziehen.
 
+Beim Einfügen mitkopierte Leerzeichen und Zeilenumbrüche in `SFTP_HOST`,
+`SFTP_USER`, `SFTP_PORT` und `SFTP_REMOTE_DIR` entfernt der Workflow selbst.
+Enthält der Benutzername etwas anderes als Buchstaben, Ziffern und `. _ - @`,
+bricht er mit einer verständlichen Meldung ab, statt ssh eine kaputte
+Kommandozeile unterzuschieben.
+
 **`SFTP_KNOWN_HOSTS`** verhindert, dass die Zugangsdaten an einen
 untergeschobenen Server gehen. Einmalig lokal erzeugen und die Ausgabe
 vollständig als Secret einfügen:
