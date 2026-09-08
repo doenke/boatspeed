@@ -220,9 +220,16 @@ window.Track = (() => {
     const d = new Date(trip.startedAt);
     const p = (n) => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+    // Buchstaben, die NFKD nicht zerlegt, weil sie keine Grundform mit
+    // Akzent sind – ohne diese Liste würde aus "Ærøskøbing" ein "r-sk-bing".
+    const LETTERS = {
+      'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+      'æ': 'ae', 'ø': 'oe', 'å': 'aa', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ł': 'l',
+      'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+      'Æ': 'Ae', 'Ø': 'Oe', 'Å': 'Aa', 'Đ': 'D', 'Ð': 'D', 'Þ': 'Th', 'Ł': 'L'
+    };
     const slug = trip.name
-      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
-      .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/ß/g, 'ss')
+      .replace(/[äöüßæøåđðþłÄÖÜÆØÅĐÐÞŁ]/g, (c) => LETTERS[c])
       .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^A-Za-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')

@@ -25,7 +25,7 @@
     installBtn: $('installBtn'), mapNote: $('mapNote'),
     smooth: $('smooth'), night: $('night'), keepAwake: $('keepAwake'),
     tripList: $('tripList'), tripSummary: $('tripSummary'),
-    recMode: $('recMode'), dawarichUrl: $('dawarichUrl'), tripName: $('tripName')
+    recMode: $('recMode'), tripName: $('tripName')
   };
 
   const store = {
@@ -559,9 +559,11 @@
     actions.className = 'trip-actions';
     // Auf dem Handy öffnet der Export den Teilen-Dialog, am Rechner lädt er
     // die Datei herunter – die Beschriftung sagt, was passiert.
-    const buttons = [['geojson', canShareFiles() ? 'Teilen' : 'GeoJSON'], ['gpx', 'GPX']];
-    if (dawarichBase()) buttons.push(['dawarich', 'Dawarich öffnen']);
-    buttons.push(['delete', 'Löschen']);
+    const buttons = [
+      ['geojson', canShareFiles() ? 'Teilen' : 'GeoJSON'],
+      ['gpx', 'GPX'],
+      ['delete', 'Löschen']
+    ];
     buttons.forEach(([act, label]) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -599,8 +601,6 @@
           await Track.deleteTrip(trip.id);
           renderTrips();
         }
-      } else if (btn.dataset.act === 'dawarich') {
-        openDawarichImport();
       } else {
         await exportTrip(trip, btn.dataset.act);
       }
@@ -657,44 +657,6 @@
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
-  /* ---------- Dawarich ---------- */
-
-  /* Die App spricht Dawarich nicht selbst an: dessen API sendet für
-     authentifizierte Aufrufe bewusst keine CORS-Header, und ein API-Key hätte
-     auf dem Gerät ohnehin nichts verloren. Der Track geht deshalb über den
-     Teilen-Dialog; dieser Knopf öffnet nur die passende Importseite. Die
-     Adresse ist kein Geheimnis – die App bleibt rein statisch. */
-  const dawarichBase = () => (store.get('dawarichUrl', '') || '').trim().replace(/\/+$/, '');
-
-  function openDawarichImport() {
-    const base = dawarichBase();
-    if (!base) return;
-    window.open(base + '/imports/new', '_blank', 'noopener');
-  }
-
-  el.dawarichUrl.addEventListener('change', () => {
-    let value = el.dawarichUrl.value.trim();
-    if (value && !/^https?:\/\//i.test(value)) value = 'https://' + value;
-    if (value) {
-      let url;
-      try {
-        url = new URL(value);
-      } catch (err) {
-        url = null;
-      }
-      // Der URL-Parser ist großzügig: "ht!tp://x" ergibt einen gültigen Host.
-      // Deshalb Schema und Hostname zusätzlich selbst prüfen.
-      if (!url || !/^https?:$/.test(url.protocol) || !/^[a-z0-9.-]+$/i.test(url.hostname)) {
-        toast('Das sieht nicht nach einer gültigen Adresse aus.');
-        return;
-      }
-      value = url.origin + url.pathname.replace(/\/+$/, '');
-    }
-    el.dawarichUrl.value = value;
-    store.set('dawarichUrl', value);
-    renderTrips();
-  });
-
   el.recMode.addEventListener('change', () => {
     state.minDist = REC_MODES[el.recMode.value];
     store.set('recMode', el.recMode.value);
@@ -715,7 +677,6 @@
   const savedMode = store.get('recMode', 'normal');
   el.recMode.value = Object.prototype.hasOwnProperty.call(REC_MODES, savedMode) ? savedMode : 'normal';
   state.minDist = REC_MODES[el.recMode.value];
-  el.dawarichUrl.value = store.get('dawarichUrl', '');
   suggestTripName();
   setFollow(true);
   initMap();

@@ -116,11 +116,6 @@ Auf dem Handy:
 1. Beim Törn auf **Teilen** tippen und die Datei ablegen.
 2. Dawarich öffnen und unter *Imports* die Datei hochladen.
 
-Wer die Adresse seiner Instanz unter **Dawarich-Adresse** hinterlegt, bekommt
-beim Törn zusätzlich den Knopf **Dawarich öffnen**, der direkt auf die
-Importseite führt – reine Tipparbeit-Ersparnis, ein Lesezeichen tut es
-genauso. Die Adresse liegt nur lokal im Browser.
-
 ## Deployment per SFTP aus GitHub
 
 `.github/workflows/deploy.yml` spiegelt den Stand des `main`-Branches per SFTP
