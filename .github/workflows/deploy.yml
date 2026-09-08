@@ -7,9 +7,6 @@ on:
   push:
     branches:
       - main
-      # Solange dieser Branch der Arbeitsstand ist, wird auch von hier
-      # ausgerollt. Nach einem Umbenennen auf main kann die Zeile weg.
-      - claude/pwa-speed-sensor-osm-ivwkjd
   workflow_dispatch:
     inputs:
       dry_run:
