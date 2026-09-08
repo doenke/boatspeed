@@ -201,6 +201,47 @@ body.night .primary { color: #1a0000; }
   .needle { transition: none; }
 }
 
+/* --- Törnliste --- */
+.trips { display: grid; gap: 10px; }
+.trip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.trip {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+.trip-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.trip-name {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--line);
+}
+.trip-meta { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trip-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.trip-actions .chip { padding: 5px 10px; font-size: .75rem; }
+.trip-actions .chip:disabled { opacity: .4; cursor: default; }
+.chip.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+
+.token {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  font: inherit;
+  padding: 6px 8px;
+  min-width: 0;
+  flex: 1 1 120px;
+  max-width: 220px;
+}
+
 /* Hinweis nach einem Deploy */
 .toast {
   position: fixed;

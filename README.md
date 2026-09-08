@@ -15,6 +15,9 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 - **Offline**: App-Shell und Leaflet liegen lokal im Cache, Geschwindigkeit und Kurs
   laufen komplett ohne Netz. Bereits geladene Kartenkacheln bleiben verfügbar.
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
+- **Track-Aufzeichnung**: jeder Törn landet in IndexedDB und übersteht Neuladen
+  und Appwechsel. Export als **GPX** oder **GeoJSON**, auf dem Handy über den
+  Teilen-Dialog. Auf Knopfdruck **Upload zu Dawarich**.
 
 ## Technik
 
@@ -26,6 +29,8 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 | Karte | Leaflet 1.9.4, lokal eingebunden unter `vendor/leaflet/` |
 | Offline | Service Worker (`sw.js`): App-Shell vorab, Kacheln „cache first“ |
 | Display an | Screen Wake Lock API, sofern vom Browser unterstützt |
+| Track-Speicher | IndexedDB (`js/track.js`), gepufferte Schreibvorgänge |
+| Dawarich-Upload | PHP-Proxy `api/dawarich.php` → `POST /api/v1/imports` |
 
 Die Sensoren des Handys werden über die Geolocation-API genutzt – das ist die
 Quelle, die auf allen Plattformen Geschwindigkeit und Kurs liefert. Kompass- und
@@ -59,6 +64,74 @@ gespeichert, die tatsächlich angezeigt wurden (kein Vorab-Download ganzer Revie
 so verlangt es die [OSM Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/).
 Für regelmäßige Nutzung auf See empfiehlt sich ein eigener Tile-Server oder ein
 kommerzieller Anbieter; dafür genügt es, die URL in `js/app.js` zu ändern.
+
+## Track aufzeichnen, exportieren, hochladen
+
+Zwischen **Start** und **Stopp** wird ein Törn aufgezeichnet. Gespeichert wird
+nicht jeder Fix, sondern gefiltert nach Strecke und Zeit – einstellbar von
+„fein" (alle 2 m) bis „sparsam" (alle 25 m), oder ganz aus. Unabhängig davon
+sichert die App spätestens alle 30 Sekunden einen Punkt, damit auch eine lange
+Flaute im Track auftaucht. Die Punkte gehen gebündelt in IndexedDB; beim
+Wegschalten und Schließen wird der Puffer geleert, und ein durch einen Absturz
+offen gebliebener Törn wird beim nächsten Start sauber abgeschlossen.
+
+**Zurücksetzen** während der Fahrt schließt den laufenden Törn ab und beginnt
+einen neuen – praktisch, um einen Schlag getrennt zu erfassen.
+
+Jeder Törn in der Liste lässt sich umbenennen, als **GPX** oder **GeoJSON**
+ausgeben und löschen. Auf dem Handy öffnet der Export den Teilen-Dialog
+(AirDrop, Mail, Dateien), sonst lädt die Datei herunter. Das GPX enthält
+Zeit, Höhe sowie Geschwindigkeit und Kurs als `TrackPointExtension`.
+
+### Upload zu Dawarich
+
+Warum nicht direkt aus der App? Dawarich schickt für seine authentifizierte API
+bewusst keine CORS-Header – im Repository steht dazu ausdrücklich
+„server-to-server and intentionally NOT covered here". Ein `fetch` aus dem
+Browser würde also blockiert. Und der Dawarich-API-Key hätte auf einem Handy
+ohnehin nichts verloren.
+
+Deshalb läuft der Upload über `api/dawarich.php` auf demselben Webspace:
+
+```
+App ──(GeoJSON + X-Device-Token)──▶ api/dawarich.php ──(API-Key)──▶ Dawarich
+     gleiche Domain, kein CORS                       POST /api/v1/imports
+```
+
+Der API-Key bleibt auf dem Server. Auf dem Handy liegt nur ein frei gewähltes
+**Gerätetoken**, das sich jederzeit in `api/config.php` austauschen lässt –
+danach ist ein verlorenes Handy wertlos. Ein Törn wird zu genau einem Import in
+Dawarich, benannt nach Datum und Törnname, dort als Einheit sichtbar und
+löschbar.
+
+**Einrichtung:** `api/config.example.php` nach `api/config.php` kopieren,
+Dawarich-URL, API-Key (Dawarich → Profil → Einstellungen) und ein selbst
+erzeugtes Gerätetoken eintragen. Dasselbe Token in der App unter
+„Dawarich-Token" hinterlegen und mit **Verbindung testen** prüfen. Ohne
+`api/config.php` antwortet der Endpunkt mit einem klaren Hinweis, und es bleibt
+beim Export – die App funktioniert vollständig ohne ihn.
+
+**Was der Proxy prüft:**
+
+- Gerätetoken zeitkonstant (`hash_equals`); ohne Treffer 403.
+- Der Token muss im Header `X-Device-Token` stehen. Genau das ist zugleich der
+  CSRF-Schutz: eine fremde Website kann diesen Header ohne CORS-Freigabe nicht
+  setzen, und der Endpunkt gibt keine CORS-Header aus.
+- Nur `.gpx`, `.geojson`, `.json`; Dateiname wird bereinigt, Inhalt wird
+  geprüft (GPX muss `<gpx` enthalten, GeoJSON muss als `FeatureCollection`
+  parsen). Der Proxy leitet also keine beliebigen Dateien weiter.
+- Größenlimit (8 MB) und Drosselung (30 Uploads pro Stunde, in
+  `api/data/rate.json`).
+- Das Ziel steht ausschließlich in der Serverkonfiguration – kein offener Relay.
+- `http://` wird nur für `localhost` akzeptiert; sonst ist `https://` Pflicht,
+  damit der API-Key nicht im Klartext über das Netz geht.
+
+Die Geschwindigkeit wird in m/s unter `speed` übergeben, der Kurs als `heading`
+– so liest Dawarichs GeoJSON-Import beides ohne Umrechnung ein.
+
+`api/config.php` und `api/data/` sind vom Deploy ausgenommen und per
+`.htaccess` gegen Abruf geschützt. Auf nginx greift `.htaccess` nicht: dort
+`api/data/` und `api/config.php` in der Serverkonfiguration sperren.
 
 ## Deployment auf eigenen Webspace
 

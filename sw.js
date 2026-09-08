@@ -10,6 +10,7 @@ const SHELL_FILES = [
   'index.html',
   'css/style.css',
   'js/app.js',
+  'js/track.js',
   'manifest.webmanifest',
   'vendor/leaflet/leaflet.js',
   'vendor/leaflet/leaflet.css',

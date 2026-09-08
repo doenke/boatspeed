@@ -81,6 +81,14 @@
     <button type="button" id="followBtn" class="chip follow-btn" aria-pressed="true">Folgen</button>
   </section>
 
+  <section class="card trips">
+    <div class="row">
+      <span class="label">Aufgezeichnete Törns</span>
+      <span id="tripSummary" class="su">–</span>
+    </div>
+    <ul id="tripList" class="trip-list"></ul>
+  </section>
+
   <section class="card settings">
     <label class="row">
       <span>Glättung</span>
@@ -98,6 +106,24 @@
       <span>Display anlassen</span>
       <input type="checkbox" id="keepAwake" checked>
     </label>
+    <label class="row">
+      <span>Aufzeichnung</span>
+      <select id="recMode">
+        <option value="normal" selected>normal (alle 5 m)</option>
+        <option value="fein">fein (alle 2 m)</option>
+        <option value="sparsam">sparsam (alle 25 m)</option>
+        <option value="aus">aus</option>
+      </select>
+    </label>
+    <div class="row">
+      <label for="devToken">Dawarich-Token</label>
+      <input type="password" id="devToken" class="token" autocomplete="off"
+             spellcheck="false" placeholder="nicht eingerichtet">
+    </div>
+    <div class="row">
+      <button type="button" id="pingBtn" class="chip">Verbindung testen</button>
+      <span id="pingResult" class="su"></span>
+    </div>
     <button type="button" id="installBtn" class="chip" hidden>App installieren</button>
   </section>
 </main>
@@ -108,6 +134,7 @@
 </footer>
 
 <script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/track.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

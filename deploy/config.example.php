@@ -26,5 +26,5 @@ return [
     'target' => null,
 
     // Pfade (relativ zum Ziel), die der Deployer nie anfasst.
-    'exclude' => ['deploy/config.php', 'deploy/data'],
+    'exclude' => ['deploy/config.php', 'deploy/data', 'api/config.php', 'api/data'],
 ];

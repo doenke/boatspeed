@@ -41,7 +41,7 @@ $DEFAULTS = [
     'target' => null,
 
     // Diese Pfade (relativ zum Ziel) werden nie geschrieben und nie gelöscht.
-    'exclude' => ['deploy/config.php', 'deploy/data'],
+    'exclude' => ['deploy/config.php', 'deploy/data', 'api/config.php', 'api/data'],
 
     // Diese Pfade aus dem Repository landen gar nicht erst auf dem Webspace.
     'skip' => ['.git', '.github', '.gitignore', '.gitattributes'],
