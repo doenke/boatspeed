@@ -145,15 +145,30 @@ bricht er mit einer verständlichen Meldung ab, statt ssh eine kaputte
 Kommandozeile unterzuschieben.
 
 **`SFTP_KNOWN_HOSTS`** verhindert, dass die Zugangsdaten an einen
-untergeschobenen Server gehen. Einmalig lokal erzeugen und die Ausgabe
-vollständig als Secret einfügen:
+untergeschobenen Server gehen. Ohne dieses Secret bricht der Workflow ab –
+das ist Absicht.
+
+Am einfachsten liefert der Workflow die Schlüssel selbst: Actions →
+**Deploy per SFTP** → *Run workflow* → **Nur die Hostschlüssel des Servers
+ausgeben** anhaken. Im Protokoll stehen dann die Fingerabdrücke zum Abgleich
+mit den Angaben des Hosters und darunter die Zeilen, die vollständig in das
+Secret gehören. Dafür genügt bereits ein gesetztes `SFTP_HOST`.
+
+Lokal geht es auch mit
 
 ```bash
-ssh-keyscan -p 22 ssh.example-hoster.de
+ssh-keyscan -p 2244 ssh.example-hoster.de
 ```
 
-Der Fingerabdruck sollte mit dem übereinstimmen, den der Hoster nennt. Ohne
-dieses Secret bricht der Workflow ab – das ist Absicht.
+– aber Vorsicht: ältere `ssh-keyscan`-Versionen, etwa das mit Windows
+gelieferte, scheitern an neueren Key-Exchange-Verfahren
+(`choose_kex: unsupported KEX method …`) und geben dann **nur Kommentarzeilen
+mit `#` aus, keinen einzigen Schlüssel**. Landet so etwas im Secret, meldet
+ssh später „Host key verification failed". Der Workflow prüft deshalb vorab,
+ob überhaupt eine Schlüsselzeile enthalten ist.
+
+Bei einem abweichenden Port muss die Zeile mit `[host]:port` beginnen – genau
+so, wie `ssh-keyscan -p` es ausgibt.
 
 ### Erster Lauf
 

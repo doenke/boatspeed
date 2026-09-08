@@ -13,6 +13,10 @@ on:
         description: "Nur anzeigen, was hochgeladen und gelöscht würde"
         type: boolean
         default: false
+      show_host_keys:
+        description: "Nur die Hostschlüssel des Servers ausgeben (für SFTP_KNOWN_HOSTS)"
+        type: boolean
+        default: false
 
 # Zwei gleichzeitige Deploys auf denselben Webspace wären ein Kuddelmuddel.
 concurrency:
@@ -23,7 +27,45 @@ permissions:
   contents: read
 
 jobs:
+  # Hilfslauf: liest die Hostschlüssel des Servers aus und gibt sie im
+  # Protokoll aus, damit sie in das Secret SFTP_KNOWN_HOSTS kopiert werden
+  # können. Nützlich, weil ältere ssh-keyscan-Versionen (etwa das mit Windows
+  # gelieferte) an neueren Key-Exchange-Verfahren scheitern und dann nur
+  # Kommentarzeilen ausgeben. Hostschlüssel sind öffentlich – hier wird
+  # nichts Vertrauliches protokolliert.
+  hostkeys:
+    if: ${{ inputs.show_host_keys }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hostschlüssel abfragen
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || '22' }}
+        run: |
+          set -eu
+          HOST=$(printf '%s' "${SFTP_HOST:-}" | tr -d '[:space:]')
+          PORT=$(printf '%s' "${SFTP_PORT:-22}" | tr -d '[:space:]')
+          if [ -z "$HOST" ]; then
+            echo "::error::Das Secret SFTP_HOST fehlt."
+            exit 1
+          fi
+          echo "Frage $HOST:$PORT ab …"
+          ssh-keyscan -p "$PORT" "$HOST" > keys.txt 2> scan.log || true
+          if ! grep -qv '^#' keys.txt || [ ! -s keys.txt ]; then
+            echo "::error::Keine Hostschlüssel erhalten. Meldung des Scanners:"
+            sed 's/^/  /' scan.log
+            exit 1
+          fi
+          echo
+          echo "Fingerabdrücke zum Abgleich mit den Angaben des Hosters:"
+          ssh-keyscan -p "$PORT" "$HOST" 2>/dev/null | ssh-keygen -lf - | sed 's/^/  /'
+          echo
+          echo "--- Ab hier alles in das Secret SFTP_KNOWN_HOSTS kopieren ---"
+          grep -v '^#' keys.txt
+          echo "--- bis hier ---"
+
   deploy:
+    if: ${{ !inputs.show_host_keys }}
     runs-on: ubuntu-latest
     steps:
       - name: Quellstand holen
@@ -49,12 +91,22 @@ jobs:
           set -eu
           install -m 700 -d ~/.ssh
           if [ -z "${SFTP_KNOWN_HOSTS:-}" ]; then
-            echo "::error::Das Secret SFTP_KNOWN_HOSTS fehlt. Einmalig erzeugen mit:"
-            echo "::error::  ssh-keyscan -p <PORT> <HOST>"
+            echo "::error::Das Secret SFTP_KNOWN_HOSTS fehlt. Diesen Workflow einmal"
+            echo "::error::manuell mit der Option 'Nur die Hostschlüssel ausgeben' starten."
             exit 1
           fi
           printf '%s\n' "$SFTP_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+          # ssh-keyscan gibt Kommentarzeilen auch dann aus, wenn es gar keinen
+          # Schlüssel bekommen hat. Wird so etwas eingefügt, scheiterte der Lauf
+          # bisher erst später mit "Host key verification failed".
+          if ! grep -qE '^[^#[:space:]]' ~/.ssh/known_hosts; then
+            echo "::error::SFTP_KNOWN_HOSTS enthält keine Schlüsselzeile, nur Kommentare oder Leerzeilen."
+            echo "::error::Diesen Workflow einmal manuell mit 'Nur die Hostschlüssel ausgeben' starten"
+            echo "::error::und die dort protokollierten Zeilen vollständig in das Secret kopieren."
+            exit 1
+          fi
+          echo "Hostschlüssel im Secret: $(grep -cE '^[^#[:space:]]' ~/.ssh/known_hosts)"
           if [ -n "${SFTP_KEY:-}" ]; then
             printf '%s\n' "$SFTP_KEY" > ~/.ssh/deploy_key
             chmod 600 ~/.ssh/deploy_key
