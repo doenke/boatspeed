@@ -571,7 +571,6 @@ if ((string) $config['token'] === '') {
 }
 if (!tokenOk($config)) {
     http_response_code(403);
-    header('WWW-Authenticate: none');
     echo '<!doctype html><meta charset="utf-8"><p style="font:16px system-ui;padding:2rem">Kein Zugriff.</p>';
     exit;
 }
