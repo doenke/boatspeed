@@ -9,11 +9,16 @@ window.Weather = (() => {
 
   const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
   const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
+  // Ortsname über die Rückwärtssuche von OpenStreetMap. Pro Wetterabfrage ein
+  // Aufruf, also weit unter der Grenze von einer Anfrage je Sekunde.
+  const GEOCODE_URL = 'https://nominatim.openstreetmap.org/reverse';
 
   const HOURS = 24;              // so weit reicht die Grafik
   const MIN_REFRESH_MS = 30 * 60 * 1000;
   const MOVED_REFRESH_M = 25000; // ab 25 km lohnt eine neue Abfrage
   const STALE_MS = 3 * 60 * 60 * 1000;
+  const MAX_AGE_MS = 12 * 60 * 60 * 1000;   // älter: Karte ausblenden
+  const MAX_DIST_M = 100000;                // weiter weg: Karte ausblenden
 
   /* Windstärken nach Beaufort, obere Grenze je Stufe in Knoten. */
   const BEAUFORT = [1, 3, 6, 10, 16, 21, 27, 33, 40, 47, 55, 63];
@@ -49,8 +54,27 @@ window.Weather = (() => {
 
   /* ---------- Abfrage ---------- */
 
+  /* Ohne Zeitgrenze wartet fetch bei schlechtem Mobilfunk minutenlang – und
+     solange blockiert die laufende Abfrage jeden neuen Versuch. */
+  const TIMEOUT_MS = 20000;
+
+  async function fetchWithTimeout(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      return await fetch(url, { mode: 'cors', signal: ctrl.signal });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Keine Antwort binnen ' + (TIMEOUT_MS / 1000) + ' Sekunden – Verbindung zu schwach?');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function getJSON(url) {
-    const res = await fetch(url, { mode: 'cors' });
+    const res = await fetchWithTimeout(url);
     let data = null;
     try {
       data = await res.json();
@@ -86,6 +110,19 @@ window.Weather = (() => {
 
   const slice = (arr, from, count) =>
     Array.isArray(arr) ? arr.slice(from, from + count) : [];
+
+  /** Ortsname für eine Position, oder null – auf offenem Wasser gibt es keinen. */
+  async function placeName(lat, lon) {
+    const url = `${GEOCODE_URL}?format=jsonv2&zoom=10&accept-language=de`
+      + `&lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`;
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return null;
+    const d = await res.json();
+    const a = (d && d.address) || {};
+    // Nur echte Orte. Ein Punkt in der Ostsee liefert sonst gern bloß ein
+    // Land, und "Dänemark" als Wetterort wäre eher irreführend.
+    return a.city || a.town || a.village || a.municipality || a.hamlet || a.suburb || null;
+  }
 
   async function load(lat, lon) {
     const place = `latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`;
@@ -134,13 +171,20 @@ window.Weather = (() => {
       waveNote: null
     };
 
-    // Seegang getrennt holen: fehlt er (Binnengewässer, Randlage der
-    // Modelle), bleibt der Rest trotzdem nutzbar.
-    try {
-      const marine = await getJSON(`${MARINE_URL}?${place}`
+    // Seegang und Ortsname nebenher holen. Beide sind verzichtbar: fehlt
+    // einer, bleibt der Rest der Karte nutzbar.
+    const [marineResult, nameResult] = await Promise.allSettled([
+      getJSON(`${MARINE_URL}?${place}`
         + '&current=wave_height,wave_direction,wave_period'
         + '&hourly=wave_height,wave_direction,wave_period'
-        + `&${common}`);
+        + `&${common}`),
+      placeName(lat, lon)
+    ]);
+    bundle.place = nameResult.status === 'fulfilled' ? nameResult.value : null;
+
+    try {
+      if (marineResult.status === 'rejected') throw marineResult.reason;
+      const marine = marineResult.value;
       const mTimes = (marine.hourly && marine.hourly.time) || [];
       const mStart = currentHourIndex(mTimes);
       const heights = slice(marine.hourly.wave_height, mStart, HOURS);
@@ -186,6 +230,6 @@ window.Weather = (() => {
     set state(v) { state = v; },
     get fetching() { return fetching; },
     set fetching(v) { fetching = v; },
-    MIN_REFRESH_MS, MOVED_REFRESH_M, STALE_MS
+    MIN_REFRESH_MS, MOVED_REFRESH_M, STALE_MS, MAX_AGE_MS, MAX_DIST_M
   };
 })();

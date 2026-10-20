@@ -52,7 +52,8 @@
     wxWind: $('wxWind'), wxWindUnit: $('wxWindUnit'), wxBft: $('wxBft'),
     wxGust: $('wxGust'), wxGustUnit: $('wxGustUnit'), wxDir: $('wxDir'),
     wxDirArrow: $('wxDirArrow'), wxWave: $('wxWave'), wxTemp: $('wxTemp'),
-    wxText: $('wxText'), wxChart: $('wxChart'), wxStatus: $('wxStatus')
+    wxText: $('wxText'), wxChart: $('wxChart'), wxStatus: $('wxStatus'),
+    wxCard: $('wxCard'), wxPlace: $('wxPlace')
   };
 
   const store = {
@@ -519,6 +520,7 @@
     timer = setInterval(() => {
       if (state.startedAt) el.dur.textContent = fmtDuration(elapsed());
       if (state.mob) el.mobAge.textContent = 'vor ' + fmtDuration((Date.now() - state.mob.t) / 1000);
+      refreshWeatherMeta();
     }, 1000);
   }
 
@@ -573,8 +575,8 @@
     if (el.keepAwake.checked) requestWakeLock(); else releaseWakeLock();
   });
 
-  window.addEventListener('online', updateNet);
-  window.addEventListener('offline', updateNet);
+  window.addEventListener('online', () => { updateNet(); refreshWeatherMeta(); });
+  window.addEventListener('offline', () => { updateNet(); refreshWeatherMeta(); });
 
   let installEvent = null;
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -912,10 +914,64 @@
     speedFloor: state.unit === 'ms' ? 5 : (state.unit === 'kmh' ? 20 : 10)
   });
 
+  const wxReady = () => typeof Weather !== 'undefined' && typeof WeatherView !== 'undefined';
+
+  /**
+   * Ausblenden, wenn die Karte nichts Brauchbares zu bieten hat:
+   * ohne Daten und ohne Netz, Daten älter als 12 Stunden, oder für einen Ort,
+   * der mehr als 100 km entfernt ist. Ohne eigene Position lässt sich die
+   * Entfernung nicht beurteilen – dann zählt sie nicht als zu weit.
+   */
+  function weatherVisible() {
+    const data = Weather.state;
+    if (!data) return navigator.onLine;
+    if (Date.now() - data.fetchedAt > Weather.MAX_AGE_MS) return false;
+    if (state.last && haversine(state.last, data) > Weather.MAX_DIST_M) return false;
+    return true;
+  }
+
+  /** Ort, Entfernung, Alter und Sichtbarkeit – billig, läuft im Sekundentakt. */
+  function refreshWeatherMeta() {
+    if (!wxReady()) return;
+    el.wxCard.hidden = !weatherVisible();
+    const data = Weather.state;
+    if (!data) {
+      el.wxPlace.textContent = '';
+      return;
+    }
+
+    const age = Date.now() - data.fetchedAt;
+    const ageText = age < 90000 ? 'gerade eben' : 'vor ' + fmtDuration(age / 1000);
+    if (el.wxAge.textContent !== ageText) el.wxAge.textContent = ageText;
+    el.wxAge.classList.toggle('old', age > Weather.STALE_MS);
+
+    // Auf offenem Wasser gibt es keinen Ortsnamen – dann die Position,
+    // so wie sie auch in der Seekarte stünde.
+    const name = data.place || formatPosition(data.lat, data.lon);
+    let away = '';
+    if (state.last) {
+      const d = haversine(state.last, data);
+      if (d > 2 * 1852) away = ` · ${(d / 1852).toFixed(d < 18520 ? 1 : 0)} sm entfernt`;
+    }
+    const label = name + away;
+    if (el.wxPlace.dataset.label !== label) {
+      el.wxPlace.dataset.label = label;
+      el.wxPlace.textContent = name;
+      if (away) {
+        const small = document.createElement('span');
+        small.className = 'su';
+        small.textContent = away;
+        el.wxPlace.appendChild(small);
+      }
+      el.wxPlace.title = label;
+    }
+  }
+
   function renderWeather() {
     if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') return;
     const data = Weather.state;
     el.wxNow.hidden = !data;
+    refreshWeatherMeta();
     if (!data) {
       el.wxChart.textContent = '';
       el.wxAge.textContent = 'noch nichts geholt';
@@ -928,9 +984,7 @@
     }
 
     const fmt = wxFormat();
-    const age = Date.now() - data.fetchedAt;
-    el.wxAge.textContent = age < 90000 ? 'gerade eben' : 'vor ' + fmtDuration(age / 1000);
-    el.wxAge.classList.toggle('stale', age > Weather.STALE_MS);
+    refreshWeatherMeta();
 
     const now = data.now;
     const windConverted = fmt.speed(now.wind);

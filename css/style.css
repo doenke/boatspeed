@@ -30,6 +30,11 @@ body.night #map { filter: brightness(.55) sepia(1) hue-rotate(-35deg) saturate(3
 
 * { box-sizing: border-box; }
 
+/* Das hidden-Attribut muss immer gewinnen. Ohne diese Zeile überstimmt jede
+   Klassenregel mit display: grid oder flex die Browser-Voreinstellung – so
+   ließ sich die Wetterkarte nicht ausblenden. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   background: var(--bg);
@@ -167,7 +172,14 @@ body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
 
 /* --- Wetter --- */
 .wx-card { display: grid; gap: 12px; }
-.wx-head-right { display: flex; align-items: center; gap: 8px; }
+.wx-head-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.wx-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wx-place {
+  font-size: .9rem; color: var(--fg); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wx-place .su { font-weight: 400; }
+#wxAge.old { color: var(--warn); }   /* älter als drei Stunden */
 
 .wx-now { display: grid; gap: 12px; }
 .wx-wind { display: flex; align-items: center; justify-content: center; gap: 14px; }

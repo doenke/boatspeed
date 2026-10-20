@@ -124,6 +124,24 @@ muss nichts gedrückt werden –, danach höchstens alle 30 Minuten oder wenn da
 *Aktualisieren* erzwingt eine neue Abfrage. Die letzte Antwort bleibt im
 Browser gespeichert und wird offline weiter angezeigt, mit Altersangabe.
 
+**Ort und Ausblenden.** Unter der Überschrift steht, für welchen Ort das
+Wetter gilt – ermittelt über die Rückwärtssuche von OpenStreetMap
+(Nominatim), einmal je Abfrage. Auf offenem Wasser gibt es keinen Ortsnamen,
+dann steht dort die Position in Grad und Dezimalminuten. Liegt der Ort mehr
+als 2 sm entfernt, wird die Entfernung dazugeschrieben.
+
+Die Wetterkarte verschwindet, wenn sie nichts Brauchbares zeigen kann:
+
+- keine Daten vorhanden und offline,
+- die Daten sind älter als 12 Stunden,
+- sie gelten für einen Ort, der mehr als 100 km entfernt ist.
+
+Ist das Netz da, holt die App in den beiden letzten Fällen von selbst neue
+Daten, und die Karte erscheint wieder. Ohne eigene Position lässt sich die
+Entfernung nicht beurteilen; dann bleibt die Karte sichtbar. Jede Abfrage
+gibt nach 20 Sekunden auf, damit eine hängende Verbindung keine weiteren
+Versuche blockiert.
+
 **Seegang fehlt mancherorts.** Das Wellenmodell deckt nicht jedes Binnen- und
 Küstengewässer ab. Dann bleiben Wind, Regen und Temperatur nutzbar und der
 Reiter *Welle* sagt, dass für diese Position nichts vorliegt.
