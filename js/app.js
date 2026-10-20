@@ -930,6 +930,16 @@
     return true;
   }
 
+  /** Alter in Minuten und Stunden – Sekunden interessieren beim Wetter nicht. */
+  function fmtAge(ms) {
+    const min = Math.floor(ms / 60000);
+    if (min < 2) return 'gerade eben';
+    if (min < 60) return `vor ${min} min`;
+    const h = Math.floor(min / 60);
+    const rest = min % 60;
+    return rest ? `vor ${h} h ${rest} min` : `vor ${h} h`;
+  }
+
   /** Ort, Entfernung, Alter und Sichtbarkeit – billig, läuft im Sekundentakt. */
   function refreshWeatherMeta() {
     if (!wxReady()) return;
@@ -941,7 +951,7 @@
     }
 
     const age = Date.now() - data.fetchedAt;
-    const ageText = age < 90000 ? 'gerade eben' : 'vor ' + fmtDuration(age / 1000);
+    const ageText = fmtAge(age);
     if (el.wxAge.textContent !== ageText) el.wxAge.textContent = ageText;
     el.wxAge.classList.toggle('old', age > Weather.STALE_MS);
 
