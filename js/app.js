@@ -270,8 +270,12 @@
           course = bearing(state.last, fix);
         }
         // Strecke nur zählen, wenn die Bewegung deutlich über dem Messrauschen liegt.
-        if (segment > Math.max(2, (c.accuracy || 0) * 0.5)) state.distance += segment;
-        if (raw !== null && raw > MOVING_MS) state.movingTime += dt;
+        // Distanz und Fahrzeit gehören zur Aufzeichnung – ohne sie würden
+        // sie schon beim Liegen im Hafen anwachsen.
+        if (recording()) {
+          if (segment > Math.max(2, (c.accuracy || 0) * 0.5)) state.distance += segment;
+          if (raw !== null && raw > MOVING_MS) state.movingTime += dt;
+        }
       }
     }
 
@@ -279,7 +283,7 @@
       state.speed = (state.speed === null || state.alpha >= 1)
         ? raw
         : state.speed + state.alpha * (raw - state.speed);
-      if (state.speed > state.maxSpeed) state.maxSpeed = state.speed;
+      if (recording() && state.speed > state.maxSpeed) state.maxSpeed = state.speed;
     }
 
     const moving = state.speed !== null && state.speed > MOVING_MS;
@@ -295,7 +299,10 @@
 
     el.acc.textContent = c.accuracy === null || c.accuracy === undefined ? '–' : Math.round(c.accuracy);
     el.alt.textContent = (typeof c.altitude === 'number' && isFinite(c.altitude)) ? Math.round(c.altitude) : '–';
-    el.hint.textContent = moving ? '' : 'Kurs erst ab ca. 1 kn Fahrt zuverlässig.';
+    el.hint.textContent = moving
+      ? ''
+      : (recording() ? 'Kurs erst ab ca. 1 kn Fahrt zuverlässig.'
+                     : 'Bereit – „Aufzeichnen“ startet den Törn.');
 
     setBadge('live', 'GPS aktiv');
     fetchWeather(false);
@@ -326,16 +333,21 @@
     el.gpsBadge.textContent = text;
   }
 
-  function start() {
+  /* Die Ortung läuft, solange die App offen ist: Fahrt, Kurs, Karte und
+     Wetter sollen ohne Knopfdruck dastehen. Der Knopf unten steuert nur noch
+     die Aufzeichnung samt Fahrtdaten. */
+  function startWatch() {
+    if (state.watchId !== null) return;
     if (!('geolocation' in navigator)) {
       el.hint.textContent = 'Dieses Gerät liefert keine Standortdaten.';
+      setBadge('err', 'kein GPS');
       return;
     }
     if (!window.isSecureContext) {
       el.hint.textContent = 'Standort braucht HTTPS (oder localhost).';
+      setBadge('err', 'kein GPS');
       return;
     }
-    state.startedAt = Date.now();
     state.watchId = navigator.geolocation.watchPosition(onPosition, onError, {
       enableHighAccuracy: true,
       maximumAge: 0,
@@ -343,23 +355,27 @@
     });
     setBadge('wait', 'GPS sucht');
     el.hint.textContent = 'Warte auf Positionsfix …';
+  }
+
+  const recording = () => state.startedAt !== null;
+
+  function startSession() {
+    if (recording()) return;
+    startWatch();                 // falls die Freigabe anfangs abgelehnt wurde
+    state.startedAt = Date.now();
     el.startBtn.textContent = 'Stopp';
     el.startBtn.classList.add('running');
     requestWakeLock();
     beginTrip();
-    tick();
   }
 
-  function stop() {
-    if (state.watchId !== null) navigator.geolocation.clearWatch(state.watchId);
-    state.watchId = null;
-    if (state.startedAt) { state.elapsedBefore = elapsed(); state.startedAt = null; }
-    state.speed = null;
-    state.cogFresh = false;
+  function stopSession() {
+    if (!recording()) return;
+    state.elapsedBefore = elapsed();
+    state.startedAt = null;
     finishTrip();
-    setBadge('idle', 'GPS aus');
-    el.hint.textContent = 'Aufzeichnung pausiert.';
-    el.startBtn.textContent = 'Start';
+    el.hint.textContent = 'Aufzeichnung beendet. Ortung läuft weiter.';
+    el.startBtn.textContent = 'Aufzeichnen';
     el.startBtn.classList.remove('running');
     releaseWakeLock();
     render();
@@ -379,7 +395,7 @@
     state.distance = 0;
     state.movingTime = 0;
     state.elapsedBefore = 0;
-    state.startedAt = state.watchId !== null ? Date.now() : null;
+    state.startedAt = recording() ? Date.now() : null;
     state.track = [];
     if (trackLine) trackLine.setLatLngs([]);
     render();
@@ -406,7 +422,9 @@
     if (state.wakeLock) { state.wakeLock.release().catch(() => {}); state.wakeLock = null; }
   }
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.watchId !== null) requestWakeLock();
+    if (document.visibilityState !== 'visible') return;
+    startWatch();
+    if (recording()) requestWakeLock();
   });
 
   /* ---------- Bedienung ---------- */
@@ -422,7 +440,7 @@
   document.querySelectorAll('.unit').forEach((b) =>
     b.addEventListener('click', () => setUnit(b.dataset.unit)));
 
-  el.startBtn.addEventListener('click', () => (state.watchId === null ? start() : stop()));
+  el.startBtn.addEventListener('click', () => (recording() ? stopSession() : startSession()));
   el.resetBtn.addEventListener('click', reset);
   el.followBtn.addEventListener('click', () => setFollow(!state.follow));
 
@@ -1025,7 +1043,7 @@
     store.set('recMode', el.recMode.value);
     if (state.minDist === null) {
       finishTrip();
-    } else if (state.watchId !== null && state.tripId === null) {
+    } else if (recording() && state.tripId === null) {
       beginTrip();
     }
   });
@@ -1046,6 +1064,7 @@
 
   setFollow(true);
   initMap();
+  startWatch();   // Position gleich beim Öffnen anfordern
   setSeamarks(store.get('seamarks', '0') === '1');
   setEco(store.get('eco', '0') === '1');
   updateNet();
@@ -1085,7 +1104,7 @@
       // würde die laufende Ortung unterbrechen. Sonst übernimmt die App die
       // neue Fassung selbst, damit niemand auf veralteten Dateien sitzen
       // bleibt, ohne es zu merken.
-      if (state.watchId !== null) {
+      if (recording()) {
         showUpdateToast();
       } else if (!sessionStorage.getItem('boatspeed.reloaded')) {
         try { sessionStorage.setItem('boatspeed.reloaded', '1'); } catch (err) { /* egal */ }

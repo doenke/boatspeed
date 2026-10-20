@@ -119,8 +119,8 @@ oder Knoten, je nach Auswahl. Beaufort rechnet unabhängig davon immer aus
 Knoten. Die App liest die Einheiten aus der Antwort der API und rechnet daraus
 um, statt eine bestimmte anzunehmen.
 
-**Wann abgefragt wird:** beim ersten Positionsfix, danach höchstens alle
-30 Minuten oder wenn das Boot mehr als 25 km zurückgelegt hat. Der Knopf
+**Wann abgefragt wird:** beim ersten Positionsfix nach dem Öffnen – dafür
+muss nichts gedrückt werden –, danach höchstens alle 30 Minuten oder wenn das Boot mehr als 25 km zurückgelegt hat. Der Knopf
 *Aktualisieren* erzwingt eine neue Abfrage. Die letzte Antwort bleibt im
 Browser gespeichert und wird offline weiter angezeigt, mit Altersangabe.
 
@@ -157,7 +157,11 @@ kommerzieller Anbieter; dafür genügt es, die URL in `js/app.js` zu ändern.
 
 ## Track aufzeichnen und weitergeben
 
-Zwischen **Start** und **Stopp** wird ein Törn aufgezeichnet. Gespeichert wird
+Die Ortung läuft, sobald die App geöffnet ist – Fahrt, Kurs, Karte und Wetter
+stehen also ohne Knopfdruck da. Der Knopf **Aufzeichnen** startet den Törn,
+**Stopp** beendet ihn; die Ortung läuft danach weiter. Fahrtdaten wie Distanz
+und Dauer gehören zur Aufzeichnung und wachsen deshalb nicht schon beim
+Liegen im Hafen. Gespeichert wird
 nicht jeder Fix, sondern gefiltert nach Strecke und Zeit – einstellbar von
 „fein" (alle 2 m) bis „sparsam" (alle 25 m), oder ganz aus. Unabhängig davon
 sichert die App spätestens alle 30 Sekunden einen Punkt, damit auch eine lange
