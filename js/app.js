@@ -1127,6 +1127,38 @@
     });
   });
 
+  /* ---------- App teilen ---------- */
+
+  /* Geteilt wird das Verzeichnis der App, nicht die aufgerufene Datei –
+     also ohne "index.html", Suchparameter oder Sprungmarke. */
+  const appUrl = () => new URL('.', location.href).href;
+
+  async function shareApp() {
+    const url = appUrl();
+    const data = {
+      title: 'BoatSpeed',
+      text: 'Fahrt, Kurs und Wetter fürs Boot – direkt im Browser, auch offline.',
+      url
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;   // Teilen abgebrochen
+      }
+    }
+    // Kein Teilen-Dialog (z. B. Desktop-Browser): in die Zwischenablage.
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link zur App kopiert.');
+      return;
+    } catch (err) { /* keine Berechtigung – dann zum Abschreiben anbieten */ }
+    await ask({ title: 'Link zur App', text: 'Zum Weitergeben kopieren:', value: url, okLabel: 'Schließen', noCancel: true });
+  }
+
+  $('shareAppBtn').addEventListener('click', shareApp);
+
   /* ---------- Dialog ---------- */
 
   /**
@@ -1134,8 +1166,9 @@
    * ab und liefert ihn zurück, ohne "value" ist er eine Rückfrage und liefert
    * true. Abbruch, Escape und ein Klick neben den Dialog ergeben null.
    */
-  function ask({ title, text, value, okLabel, danger }) {
+  function ask({ title, text, value, okLabel, danger, noCancel }) {
     const wantsText = typeof value === 'string';
+    $('dlgCancel').hidden = !!noCancel;
     el.dlgTitle.textContent = title;
     el.dlgText.textContent = text || '';
     el.dlgText.hidden = !text;

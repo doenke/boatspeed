@@ -22,6 +22,8 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 - **Offline**: App-Shell und Leaflet liegen lokal im Cache, Geschwindigkeit und Kurs
   laufen komplett ohne Netz. Bereits geladene Kartenkacheln bleiben verfügbar.
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
+- **App teilen**: Knopf in der Titelzeile öffnet den Teilen-Dialog mit dem Link
+  zur App; ohne Teilen-Dialog wird der Link kopiert.
 - **Track-Aufzeichnung**: jeder Törn landet in IndexedDB und übersteht Neuladen
   und Appwechsel. Benennbar vor dem Start, während der Fahrt und danach; der
   Name steckt im Dateinamen. Export als **GPX** oder **GeoJSON**, auf dem Handy
