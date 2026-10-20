@@ -17,6 +17,8 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
   Alter der Marke, dazu ein Kreuz auf der Karte.
 - **Sparmodus**: Karte aus, Anzeige gedrosselt und abgedunkelt – Ortung und
   Aufzeichnung laufen unverändert weiter.
+- **Wetter**: aktuelle Lage und 24-Stunden-Verlauf für Wind, Welle, Niederschlag
+  und Temperatur, grafisch aufbereitet. Ohne Schlüssel, ohne Backend.
 - **Offline**: App-Shell und Leaflet liegen lokal im Cache, Geschwindigkeit und Kurs
   laufen komplett ohne Netz. Bereits geladene Kartenkacheln bleiben verfügbar.
 - **Nachtmodus** (rot), **Display anlassen** (Wake Lock), **Installierbar** als App.
@@ -38,6 +40,7 @@ Alles ist statisches HTML/CSS/JS – kein Build, kein Backend. Es genügt, den O
 | Display an | Screen Wake Lock API, sofern vom Browser unterstützt |
 | Track-Speicher | IndexedDB (`js/track.js`), gepufferte Schreibvorgänge |
 | Export | Web Share API mit Datei, sonst Download über `<a download>` |
+| Wetter | Open-Meteo (`js/weather.js`), Diagramme als eigenes SVG ohne Bibliothek |
 
 Die Sensoren des Handys werden über die Geolocation-API genutzt – das ist die
 Quelle, die auf allen Plattformen Geschwindigkeit und Kurs liefert. Kompass- und
@@ -93,6 +96,41 @@ der Track vollständig da, er wurde die ganze Zeit mitgeführt.
 Was der Sparmodus *nicht* kann: das Display abschalten und im Hintergrund
 weiterlaufen. Sobald der Browser die Seite einfriert, steht die Aufzeichnung –
 das ist eine Grenze der Plattform, keine Einstellungssache.
+
+## Wetter
+
+Die Wetterkarte holt für die aktuelle Position den Ist-Zustand und einen
+24-Stunden-Verlauf von **[Open-Meteo](https://open-meteo.com/)**. Das passt zu
+dieser App, weil es **ohne API-Schlüssel** auskommt und CORS erlaubt – es
+bleibt also bei einer statischen Seite ohne Geheimnisse.
+
+Oben stehen Wind, Böen, Richtung, Welle und Temperatur auf einen Blick, dazu
+die Windstärke in Beaufort. Darunter lässt sich der Verlauf umschalten:
+
+| Reiter | Inhalt |
+| --- | --- |
+| Wind | Windgeschwindigkeit als Fläche, Böen als gestrichelte Linie, Richtungspfeile, Nachtstunden abgedunkelt |
+| Welle | signifikante Wellenhöhe |
+| Regen | Niederschlag je Stunde als Balken |
+| Temp | Temperaturverlauf |
+
+**Einheiten** folgen der Umschaltung oben am Tacho: Wind erscheint in m/s, km/h
+oder Knoten, je nach Auswahl. Beaufort rechnet unabhängig davon immer aus
+Knoten. Die App liest die Einheiten aus der Antwort der API und rechnet daraus
+um, statt eine bestimmte anzunehmen.
+
+**Wann abgefragt wird:** beim ersten Positionsfix, danach höchstens alle
+30 Minuten oder wenn das Boot mehr als 25 km zurückgelegt hat. Der Knopf
+*Aktualisieren* erzwingt eine neue Abfrage. Die letzte Antwort bleibt im
+Browser gespeichert und wird offline weiter angezeigt, mit Altersangabe.
+
+**Seegang fehlt mancherorts.** Das Wellenmodell deckt nicht jedes Binnen- und
+Küstengewässer ab. Dann bleiben Wind, Regen und Temperatur nutzbar und der
+Reiter *Welle* sagt, dass für diese Position nichts vorliegt.
+
+Als Modell läuft die Voreinstellung von Open-Meteo, die je nach Region das
+jeweils beste wählt – über Europa meist ICON, global GFS. Die Daten stehen
+unter CC BY 4.0, der Quellenhinweis unter der Karte gehört deshalb dazu.
 
 ## Genauigkeit
 

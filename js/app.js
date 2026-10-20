@@ -31,7 +31,12 @@
     seamarkBtn: $('seamarkBtn'), ecoMode: $('ecoMode'), ecoNote: $('ecoNote'),
     mobBtn: $('mobBtn'), mobCard: $('mobCard'), mobAge: $('mobAge'),
     mobBearing: $('mobBearing'), mobDistance: $('mobDistance'),
-    mobDistUnit: $('mobDistUnit'), mobPos: $('mobPos'), mobClearBtn: $('mobClearBtn')
+    mobDistUnit: $('mobDistUnit'), mobPos: $('mobPos'), mobClearBtn: $('mobClearBtn'),
+    wxAge: $('wxAge'), wxRefresh: $('wxRefresh'), wxNow: $('wxNow'),
+    wxWind: $('wxWind'), wxWindUnit: $('wxWindUnit'), wxBft: $('wxBft'),
+    wxGust: $('wxGust'), wxGustUnit: $('wxGustUnit'), wxDir: $('wxDir'),
+    wxDirArrow: $('wxDirArrow'), wxWave: $('wxWave'), wxTemp: $('wxTemp'),
+    wxText: $('wxText'), wxChart: $('wxChart'), wxStatus: $('wxStatus')
   };
 
   const store = {
@@ -73,6 +78,8 @@
 
   // Im Sparmodus wird die Anzeige nur noch im Sekundentakt neu gezeichnet.
   const ECO_RENDER_MS = 1000;
+
+  let wxTab = 'wind';
 
   // Wie dicht wird aufgezeichnet? Kleinster Abstand in Metern, "aus" = nicht.
   const REC_MODES = { fein: 2, normal: 5, sparsam: 25, aus: null };
@@ -291,6 +298,7 @@
     el.hint.textContent = moving ? '' : 'Kurs erst ab ca. 1 kn Fahrt zuverlässig.';
 
     setBadge('live', 'GPS aktiv');
+    fetchWeather(false);
     updateMap(fix.lat, fix.lon, state.cog);
     if (state.mob) renderMOB();
 
@@ -408,6 +416,7 @@
       b.setAttribute('aria-pressed', String(b.dataset.unit === state.unit)));
     store.set('unit', state.unit);
     render();
+    if (typeof Weather !== 'undefined' && Weather.state) renderWeather();
   }
 
   document.querySelectorAll('.unit').forEach((b) =>
@@ -764,6 +773,107 @@
   el.ecoMode.addEventListener('change', () => setEco(el.ecoMode.checked));
   el.seamarkBtn.addEventListener('click', () => setSeamarks(!state.seamarks));
 
+  /* ---------- Wetter ---------- */
+
+  /** Zahlen in der Einheit anzeigen, die oben am Tacho gewählt ist. */
+  const wxFormat = () => ({
+    speed: (ms) => (typeof ms === 'number' && isFinite(ms) ? ms * UNITS[state.unit].factor : null),
+    speedLabel: UNITS[state.unit].label,
+    speedFloor: state.unit === 'ms' ? 5 : (state.unit === 'kmh' ? 20 : 10)
+  });
+
+  function renderWeather() {
+    const data = Weather.state;
+    el.wxNow.hidden = !data;
+    if (!data) {
+      el.wxChart.textContent = '';
+      el.wxAge.textContent = '–';
+      return;
+    }
+
+    const fmt = wxFormat();
+    const age = Date.now() - data.fetchedAt;
+    el.wxAge.textContent = age < 90000 ? 'gerade eben' : 'vor ' + fmtDuration(age / 1000);
+    el.wxAge.classList.toggle('stale', age > Weather.STALE_MS);
+
+    const now = data.now;
+    const windConverted = fmt.speed(now.wind);
+    el.wxWind.textContent = windConverted === null ? '–' : windConverted.toFixed(1);
+    el.wxWindUnit.textContent = fmt.speedLabel;
+    el.wxGustUnit.textContent = fmt.speedLabel;
+    const gustConverted = fmt.speed(now.gust);
+    el.wxGust.textContent = gustConverted === null ? '–' : gustConverted.toFixed(1);
+
+    // Beaufort rechnet sich aus Knoten, unabhängig von der Anzeigeeinheit.
+    el.wxBft.textContent = typeof now.wind === 'number' && isFinite(now.wind)
+      ? Weather.beaufort(now.wind * 1.9438444924406046) + ' Bft' : '';
+
+    if (typeof now.dir === 'number' && isFinite(now.dir)) {
+      el.wxDir.textContent = String(Math.round(now.dir) % 360).padStart(3, '0');
+      // Meteorologisch zählt die Herkunft – der Pfeil zeigt in die Wehrichtung.
+      el.wxDirArrow.firstElementChild.style.transform = `rotate(${(now.dir + 180) % 360}deg)`;
+    } else {
+      el.wxDir.textContent = '–';
+    }
+
+    const waveNow = data.waves && data.waves.now;
+    el.wxWave.textContent = waveNow && isFinite(waveNow.wave_height)
+      ? Number(waveNow.wave_height).toFixed(1) : '–';
+    el.wxTemp.textContent = isFinite(now.temp) ? Math.round(now.temp) : '–';
+
+    const words = Weather.WMO[now.code];
+    const rain = isFinite(now.rain) && now.rain > 0 ? `, ${now.rain} ${data.rainUnit}` : '';
+    el.wxText.textContent = words ? words + rain : '';
+
+    WeatherView.draw(el.wxChart, data, wxTab, fmt);
+  }
+
+  async function fetchWeather(force) {
+    if (Weather.fetching) return;
+    const fix = state.last;
+    if (!fix) {
+      el.wxStatus.textContent = 'Wetter braucht eine Position – bitte erst „Start“ drücken.';
+      return;
+    }
+    if (!navigator.onLine) {
+      el.wxStatus.textContent = 'Offline – angezeigt wird der zuletzt geholte Stand.';
+      return;
+    }
+    const old = Weather.state;
+    if (!force && old) {
+      const fresh = Date.now() - old.fetchedAt < Weather.MIN_REFRESH_MS;
+      const near = haversine({ lat: old.lat, lon: old.lon }, fix) < Weather.MOVED_REFRESH_M;
+      if (fresh && near) return;
+    }
+
+    Weather.fetching = true;
+    el.wxRefresh.disabled = true;
+    el.wxStatus.textContent = 'Wetter wird geholt …';
+    try {
+      const bundle = await Weather.load(fix.lat, fix.lon);
+      Weather.state = bundle;
+      Weather.save(bundle);
+      el.wxStatus.textContent = bundle.waveNote || '';
+      renderWeather();
+    } catch (err) {
+      // Open-Meteo nennt den Grund im Klartext; genau den zeigen wir.
+      el.wxStatus.textContent = 'Wetter nicht abrufbar: ' + err.message;
+    } finally {
+      Weather.fetching = false;
+      el.wxRefresh.disabled = false;
+    }
+  }
+
+  el.wxRefresh.addEventListener('click', () => fetchWeather(true));
+  document.querySelectorAll('.wx-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      wxTab = tab.dataset.wx;
+      document.querySelectorAll('.wx-tab').forEach((t) =>
+        t.setAttribute('aria-pressed', String(t === tab)));
+      if (Weather.state) WeatherView.draw(el.wxChart, Weather.state, wxTab, wxFormat());
+    });
+  });
+
   /* ---------- Dialog ---------- */
 
   /**
@@ -885,6 +995,10 @@
     if (saved && isFinite(saved.lat) && isFinite(saved.lon)) state.mob = saved;
   } catch (err) { /* beschädigter Eintrag wird verworfen */ }
   renderMOB();
+
+  Weather.state = Weather.restore();
+  renderWeather();
+
   tick();
 
   // Nach einem Absturz offen gebliebene Törns schließen, dann Liste zeigen.

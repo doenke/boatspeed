@@ -102,6 +102,52 @@
     </div>
   </section>
 
+  <section class="card wx-card">
+    <div class="row wx-head">
+      <span class="label">Wetter</span>
+      <span class="wx-head-right">
+        <span id="wxAge" class="su">–</span>
+        <button type="button" id="wxRefresh" class="chip">Aktualisieren</button>
+      </span>
+    </div>
+
+    <div id="wxNow" class="wx-now" hidden>
+      <div class="wx-wind">
+        <span class="wx-arrow-big" id="wxDirArrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2 L18 20 L12 16 L6 20 Z"/></svg>
+        </span>
+        <span class="wx-wind-figures">
+          <output id="wxWind">–</output><span class="su" id="wxWindUnit">kn</span>
+          <span class="wx-bft" id="wxBft"></span>
+        </span>
+      </div>
+      <div class="wx-grid">
+        <div class="stat"><span class="label">Böen</span>
+          <span class="val"><output id="wxGust">–</output><span class="su" id="wxGustUnit">kn</span></span></div>
+        <div class="stat"><span class="label">Richtung</span>
+          <span class="val"><output id="wxDir">–</output><span class="su">°</span></span></div>
+        <div class="stat"><span class="label">Welle</span>
+          <span class="val"><output id="wxWave">–</output><span class="su">m</span></span></div>
+        <div class="stat"><span class="label">Temperatur</span>
+          <span class="val"><output id="wxTemp">–</output><span class="su">°C</span></span></div>
+      </div>
+      <p id="wxText" class="hint wx-text"></p>
+    </div>
+
+    <div class="wx-tabs" role="group" aria-label="Verlauf">
+      <button type="button" class="chip wx-tab" data-wx="wind" aria-pressed="true">Wind</button>
+      <button type="button" class="chip wx-tab" data-wx="wave" aria-pressed="false">Welle</button>
+      <button type="button" class="chip wx-tab" data-wx="rain" aria-pressed="false">Regen</button>
+      <button type="button" class="chip wx-tab" data-wx="temp" aria-pressed="false">Temp</button>
+    </div>
+    <div id="wxChart" class="wx-chart-box"></div>
+
+    <p id="wxStatus" class="hint"></p>
+    <p class="wx-credit">Wetterdaten von
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>
+      (CC BY 4.0)</p>
+  </section>
+
   <section class="card trips">
     <div class="row">
       <span class="label">Aufgezeichnete Törns</span>
@@ -169,6 +215,8 @@
 
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/track.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/weatherview.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

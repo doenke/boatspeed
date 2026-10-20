@@ -11,6 +11,8 @@ const SHELL_FILES = [
   'css/style.css',
   'js/app.js',
   'js/track.js',
+  'js/weather.js',
+  'js/weatherview.js',
   'manifest.webmanifest',
   'vendor/leaflet/leaflet.js',
   'vendor/leaflet/leaflet.css',

@@ -165,6 +165,50 @@ body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
 }
 .map-buttons .chip { background: var(--card); }
 
+/* --- Wetter --- */
+.wx-card { display: grid; gap: 12px; }
+.wx-head-right { display: flex; align-items: center; gap: 8px; }
+
+.wx-now { display: grid; gap: 12px; }
+.wx-wind { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.wx-arrow-big { width: 46px; height: 46px; flex: none; display: block; }
+.wx-arrow-big svg { width: 100%; height: 100%; transition: transform .4s ease-out; }
+.wx-arrow-big path { fill: var(--accent); }
+.wx-wind-figures { display: flex; align-items: baseline; gap: 6px; }
+.wx-wind-figures output {
+  font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.wx-bft {
+  font-size: .8rem; color: var(--muted); border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 8px; margin-left: 4px;
+}
+.wx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; }
+.wx-grid output { font-size: 1.05rem; }
+.wx-text { text-align: center; margin: 0; }
+
+.wx-tabs { display: flex; gap: 6px; }
+.wx-tabs .chip { flex: 1 1 0; padding: 6px 0; font-size: .78rem; }
+.wx-tab[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.wx-chart-box { min-height: 40px; }
+.wx-chart { width: 100%; height: auto; display: block; overflow: visible; }
+/* Nacht wird abgedunkelt, nicht aufgehellt – sonst liest es sich wie eine
+   Hervorhebung statt wie Dunkelheit. */
+.wx-night { fill: #000; opacity: .28; }
+.wx-gridline { stroke: var(--line); stroke-width: 1; }
+.wx-axis { fill: var(--muted); font-size: 9px; text-anchor: end; font-family: inherit; }
+.wx-axis-x { text-anchor: middle; }
+.wx-area { fill: var(--accent); opacity: .22; stroke: none; }
+.wx-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.wx-second { fill: none; stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.wx-bar { fill: var(--accent-2); }
+.wx-arrow { fill: var(--muted); }
+.wx-legend { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2px; }
+.wx-credit { margin: 0; font-size: .68rem; color: var(--muted); text-align: right; }
+.wx-credit a { color: var(--muted); }
+
+body.eco .wx-card { display: none; }
+
 /* --- Mann über Bord --- */
 .mob-card {
   border-color: var(--bad);
