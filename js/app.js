@@ -893,6 +893,8 @@
     el.ecoNote.hidden = !on;
     el.ecoMode.checked = on;
     store.set('eco', on ? '1' : '0');
+    // Beim Verlassen des Sparmodus das Wetter nachholen, falls fällig.
+    if (!on) fetchWeather(false);
     if (!on && map) {
       // Beim Zurückschalten die Karte auf den aktuellen Stand bringen.
       map.invalidateSize();
@@ -1065,6 +1067,9 @@
     // Ohne die Module gibt es nichts zu holen – sonst scheiterte das bei
     // jedem einzelnen Positionsfix erneut.
     if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') return;
+    // Im Sparmodus ist die Wetterkarte ausgeblendet – dann auch nichts holen.
+    // Mobilfunk gehört zu den großen Stromfressern.
+    if (state.eco) return;
     if (Weather.fetching) return;
     if (!navigator.onLine) {
       el.wxStatus.textContent = Weather.state

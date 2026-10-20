@@ -88,6 +88,9 @@ setzt an dem an, was eine Web-App tatsächlich beeinflussen kann:
 
 - **Karte aus.** Keine Kacheln mehr laden, nichts mehr zeichnen. Das spart
   Rechenzeit und unterwegs auch Mobilfunkdaten.
+- **Wetter aus.** Die Wetterkarte ist ausgeblendet, und es wird auch nichts
+  abgerufen. Nach dem Verlassen des Sparmodus holt die App das Wetter nach,
+  falls es fällig ist.
 - **Anzeige gedrosselt** auf eine Aktualisierung je Sekunde statt bei jedem Fix.
 - **Abgedunkelte Flächen**, was auf OLED-Displays messbar Strom spart.
 
