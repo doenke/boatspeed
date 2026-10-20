@@ -787,7 +787,12 @@
     el.wxNow.hidden = !data;
     if (!data) {
       el.wxChart.textContent = '';
-      el.wxAge.textContent = '–';
+      el.wxAge.textContent = 'noch nichts geholt';
+      if (!el.wxStatus.textContent) {
+        el.wxStatus.textContent = navigator.onLine
+          ? 'Noch keine Wetterdaten – auf „Aktualisieren“ tippen.'
+          : 'Offline – Wetter lässt sich erst mit Internetverbindung holen.';
+      }
       return;
     }
 
@@ -828,15 +833,56 @@
     WeatherView.draw(el.wxChart, data, wxTab, fmt);
   }
 
+  /* Einzelne Ortung nur fürs Wetter – damit die Karte auch ohne laufende
+     Aufzeichnung etwas anzeigen kann. */
+  function positionForWeather() {
+    if (state.last) return Promise.resolve(state.last);
+    return new Promise((resolve, reject) => {
+      if (!('geolocation' in navigator) || !window.isSecureContext) {
+        reject(new Error('Standort nicht verfügbar (braucht HTTPS).'));
+        return;
+      }
+      // Eigene Reißleine: manche Browser melden eine abgelehnte Freigabe gar
+      // nicht zurück, dann bliebe die Anzeige für immer beim Warten stehen.
+      let settled = false;
+      const finish = (fn, value) => { if (!settled) { settled = true; fn(value); } };
+      const watchdog = setTimeout(() => finish(reject,
+        new Error('Keine Position erhalten – Standortfreigabe prüfen.')), 20000);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          clearTimeout(watchdog);
+          finish(resolve, { lat: pos.coords.latitude, lon: pos.coords.longitude, t: Date.now() });
+        },
+        (err) => {
+          clearTimeout(watchdog);
+          finish(reject, new Error(err.code === 1
+            ? 'Standortfreigabe verweigert – ohne Position kein Wetter.'
+            : 'Keine Position für die Wetterabfrage erhalten.'));
+        },
+        { enableHighAccuracy: false, maximumAge: 600000, timeout: 15000 }
+      );
+    });
+  }
+
   async function fetchWeather(force) {
     if (Weather.fetching) return;
-    const fix = state.last;
-    if (!fix) {
-      el.wxStatus.textContent = 'Wetter braucht eine Position – bitte erst „Start“ drücken.';
+    if (!navigator.onLine) {
+      el.wxStatus.textContent = Weather.state
+        ? 'Offline – angezeigt wird der zuletzt geholte Stand.'
+        : 'Offline – Wetter lässt sich erst mit Internetverbindung holen.';
       return;
     }
-    if (!navigator.onLine) {
-      el.wxStatus.textContent = 'Offline – angezeigt wird der zuletzt geholte Stand.';
+    // Ohne laufende Ortung nur auf ausdrücklichen Wunsch nach der Position
+    // fragen, sonst fiele die Freigabe beim bloßen Öffnen der App an.
+    if (!state.last && !force) return;
+
+    let fix;
+    try {
+      if (!state.last) el.wxStatus.textContent = 'Position wird bestimmt …';
+      fix = await positionForWeather();
+    } catch (err) {
+      el.wxStatus.textContent = err.message;
       return;
     }
     const old = Weather.state;
@@ -856,15 +902,23 @@
       el.wxStatus.textContent = bundle.waveNote || '';
       renderWeather();
     } catch (err) {
-      // Open-Meteo nennt den Grund im Klartext; genau den zeigen wir.
-      el.wxStatus.textContent = 'Wetter nicht abrufbar: ' + err.message;
+      // Open-Meteo nennt den Grund im Klartext; genau den zeigen wir. Bricht
+      // schon die Verbindung, sagt fetch nur "Failed to fetch" – das übersetzen
+      // wir, sonst steht da etwas, mit dem niemand etwas anfangen kann.
+      const network = err instanceof TypeError || /failed to fetch|networkerror/i.test(err.message);
+      el.wxStatus.textContent = network
+        ? 'Wetterdienst nicht erreichbar (Netz, Sperre oder CORS). Später erneut versuchen.'
+        : 'Wetter nicht abrufbar: ' + err.message;
     } finally {
       Weather.fetching = false;
       el.wxRefresh.disabled = false;
     }
   }
 
-  el.wxRefresh.addEventListener('click', () => fetchWeather(true));
+  el.wxRefresh.addEventListener('click', () => {
+    el.wxStatus.textContent = '';
+    fetchWeather(true);
+  });
   document.querySelectorAll('.wx-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       wxTab = tab.dataset.wx;
