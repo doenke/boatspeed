@@ -23,8 +23,8 @@
      6 m Genauigkeit braucht 1 kn rund eine halbe Minute, bis der Versatz aus
      dem Rauschen ragt. Deshalb mehrere Fenster nebeneinander – schnelle
      Fahrt wird früh erkannt, langsames Vertreiben später, aber eben doch. */
-  const HISTORY_MS = 45000;
-  const WINDOWS_MS = [5000, 15000, 40000];
+  const HISTORY_MS = 65000;
+  const WINDOWS_MS = [5000, 15000, 60000];
   const CONF = 3;          // nötiger Versatz als Vielfaches der Unsicherheit
   const CONF_KEEP = 1.8;   // gelockert, solange bereits Fahrt erkannt ist
   const MIN_VOTES = 2;     // zwei Fixes in Folge, gegen einzelne Ausreißer
@@ -314,11 +314,22 @@
   function motionEstimate() {
     const needed = state.still === false ? CONF_KEEP : CONF;
     let measured = false;
+    let ceiling = Infinity;   // was kürzere Fenster bereits ausgeschlossen haben
+
     for (const ms of WINDOWS_MS) {
       const m = windowMotion(ms);
       if (!m) continue;
       measured = true;
-      if (m.net > needed * m.sigma) return m;
+
+      if (m.net > needed * m.sigma) {
+        /* Ein langes Fenster darf nicht mehr Fahrt behaupten, als ein kurzes
+           schon ausgeschlossen hat. Sonst überspannt es einen Wechsel – nach
+           dem Stoppen hielte es die Anzeige noch eine Minute lang oben. */
+        return m.speed <= ceiling ? m : false;
+      }
+
+      // Nichts gefunden: damit ist alles oberhalb dieser Schwelle ausgeschlossen.
+      ceiling = Math.min(ceiling, (needed * m.sigma) / m.dt);
     }
     return measured ? false : null;
   }
