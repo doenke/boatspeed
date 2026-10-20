@@ -71,9 +71,13 @@ Branch.
   auf ein Verzeichnis mit anderen Inhalten, verschwinden diese. Deshalb ein
   eigenes Unterverzeichnis verwenden; das Wurzelverzeichnis lehnt der Workflow ab.
 - `.git`, `.github` und `.gitignore` werden nicht übertragen.
-- Der Commit-SHA wird vor dem Upload als Cache-Version in `sw.js` gestempelt
-  (Platzhalter `__BUILD__`). Dadurch erkennen installierte Apps das Update,
-  verwerfen den alten Cache und melden „Neue Version verfügbar".
+- Der Commit-SHA wird vor dem Upload als Cache-Version in `sw.js` **und
+  sichtbar in `index.html`** gestempelt (Platzhalter `__BUILD__`). Dadurch
+  erkennen installierte Apps das Update und verwerfen den alten Cache; unten
+  in den Einstellungen steht, welche Fassung ein Gerät tatsächlich geladen hat.
+- Ein Update wird selbsttätig übernommen, solange keine Aufzeichnung läuft.
+  Währenddessen fragt die App stattdessen nach, statt die Ortung zu
+  unterbrechen.
 - Weil ein frischer Checkout alle Zeitstempel auf „jetzt" setzt, lädt lftp
   jedes Mal alle Dateien neu hoch. Bei rund 250 kB fällt das nicht ins Gewicht.
 - Zwei Deploys gleichzeitig verhindert die `concurrency`-Gruppe.

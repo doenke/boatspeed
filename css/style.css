@@ -206,6 +206,8 @@ body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
 .wx-legend { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2px; }
 .wx-credit { margin: 0; font-size: .68rem; color: var(--muted); text-align: right; }
 .wx-credit a { color: var(--muted); }
+.build-line { text-align: left; margin-top: 2px; }
+.build-line code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 body.eco .wx-card { display: none; }
 

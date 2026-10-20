@@ -783,6 +783,7 @@
   });
 
   function renderWeather() {
+    if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') return;
     const data = Weather.state;
     el.wxNow.hidden = !data;
     if (!data) {
@@ -866,6 +867,9 @@
   }
 
   async function fetchWeather(force) {
+    // Ohne die Module gibt es nichts zu holen – sonst scheiterte das bei
+    // jedem einzelnen Positionsfix erneut.
+    if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') return;
     if (Weather.fetching) return;
     if (!navigator.onLine) {
       el.wxStatus.textContent = Weather.state
@@ -1036,6 +1040,10 @@
   const savedMode = store.get('recMode', 'normal');
   el.recMode.value = Object.prototype.hasOwnProperty.call(REC_MODES, savedMode) ? savedMode : 'normal';
   state.minDist = REC_MODES[el.recMode.value];
+  // Vor dem Ausrollen steht hier noch der Platzhalter aus dem Quelltext.
+  const build = $('buildId');
+  if (build && build.textContent.indexOf('BUILD') !== -1) build.textContent = 'lokal, nicht ausgerollt';
+
   setFollow(true);
   initMap();
   setSeamarks(store.get('seamarks', '0') === '1');
@@ -1050,8 +1058,16 @@
   } catch (err) { /* beschädigter Eintrag wird verworfen */ }
   renderMOB();
 
-  Weather.state = Weather.restore();
-  renderWeather();
+  // Fehlt eines der Wetter-Skripte (alter Cache, abgebrochener Upload), darf
+  // das nicht den Rest der App lahmlegen – vorher riss der Fehler hier alles
+  // Nachfolgende mit, bis hin zum Sekundentakt.
+  if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') {
+    el.wxStatus.textContent = 'Wetter-Teil nicht geladen. Bitte die Seite neu laden.';
+    el.wxAge.textContent = '–';
+  } else {
+    Weather.state = Weather.restore();
+    renderWeather();
+  }
 
   tick();
 
@@ -1064,7 +1080,19 @@
     // Nach einem Deploy übernimmt der neue Service Worker sofort; nur dann,
     // wenn vorher schon einer aktiv war, ist das ein echtes Update.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hadController) showUpdateToast();
+      if (!hadController) return;
+      // Während einer Aufzeichnung wird nicht ungefragt neu geladen – das
+      // würde die laufende Ortung unterbrechen. Sonst übernimmt die App die
+      // neue Fassung selbst, damit niemand auf veralteten Dateien sitzen
+      // bleibt, ohne es zu merken.
+      if (state.watchId !== null) {
+        showUpdateToast();
+      } else if (!sessionStorage.getItem('boatspeed.reloaded')) {
+        try { sessionStorage.setItem('boatspeed.reloaded', '1'); } catch (err) { /* egal */ }
+        location.reload();
+      } else {
+        showUpdateToast();
+      }
     });
   }
 

@@ -74,8 +74,17 @@ jobs:
       - name: Cache-Version in den Service Worker stempeln
         run: |
           set -eu
-          sed -i "s/__BUILD__/${GITHUB_SHA:0:12}/" sw.js
+          # Dieselbe Kennung in den Service Worker (Cache-Version) und sichtbar
+          # in die Seite, damit sich im Zweifel feststellen lässt, welche
+          # Fassung ein Gerät tatsächlich geladen hat.
+          BUILD="${GITHUB_SHA:0:12}"
+          if [ -z "$BUILD" ]; then
+            echo "::error::GITHUB_SHA ist leer – ohne Kennung keine Cache-Version."
+            exit 1
+          fi
+          sed -i "s/__BUILD__/$BUILD/" sw.js index.html
           grep -n "const VERSION" sw.js
+          grep -n "buildId" index.html
 
       - name: lftp installieren
         run: |
