@@ -185,6 +185,15 @@ body.night .units .unit[aria-pressed="true"] { color: #1a0000; }
 }
 .map-buttons .chip { background: var(--card); }
 
+/* --- Fußnote unter dem Inhalt --- */
+.page-foot {
+  grid-column: 1 / -1;
+  margin: 2px 0 4px;
+  text-align: center;
+  font-size: .72rem;
+}
+.page-foot a { color: var(--muted); }
+
 /* --- Wetter --- */
 .wx-card { display: grid; gap: 12px; }
 .wx-head-right { display: flex; align-items: center; gap: 8px; flex: none; }
