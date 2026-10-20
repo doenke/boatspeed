@@ -53,7 +53,7 @@
     wxGust: $('wxGust'), wxGustUnit: $('wxGustUnit'), wxDir: $('wxDir'),
     wxDirArrow: $('wxDirArrow'), wxWave: $('wxWave'), wxTemp: $('wxTemp'),
     wxText: $('wxText'), wxChart: $('wxChart'), wxStatus: $('wxStatus'),
-    wxCard: $('wxCard'), wxPlace: $('wxPlace'), wxTabs: $('wxTabs')
+    wxCard: $('wxCard'), wxPlace: $('wxPlace'), wxTabs: $('wxTabs'), wxCredit: $('wxCredit')
   };
 
   const store = {
@@ -983,11 +983,12 @@
   function renderWeather() {
     if (typeof Weather === 'undefined' || typeof WeatherView === 'undefined') return;
     const data = Weather.state;
-    // Ohne Daten gibt es nichts umzuschalten und nichts zu zeichnen –
-    // Reiter und Diagrammfläche wären nur leerer Platz.
+    // Ohne Daten gibt es nichts umzuschalten, nichts zu zeichnen und nichts,
+    // wofür eine Quelle anzugeben wäre.
     el.wxNow.hidden = !data;
     el.wxTabs.hidden = !data;
     el.wxChart.hidden = !data;
+    el.wxCredit.hidden = !data;
     refreshWeatherMeta();
     if (!data) {
       el.wxChart.textContent = '';
