@@ -75,6 +75,7 @@ body {
   fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
 }
+.icon-btn circle { fill: currentColor; stroke: none; }
 .icon-btn:active { color: var(--accent); border-color: var(--accent); }
 .badge {
   font-size: .72rem;
