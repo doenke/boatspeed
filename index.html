@@ -146,13 +146,13 @@
       <p id="wxText" class="hint wx-text"></p>
     </div>
 
-    <div class="wx-tabs" role="group" aria-label="Verlauf">
+    <div class="wx-tabs" id="wxTabs" role="group" aria-label="Verlauf" hidden>
       <button type="button" class="chip wx-tab" data-wx="wind" aria-pressed="true">Wind</button>
       <button type="button" class="chip wx-tab" data-wx="wave" aria-pressed="false">Welle</button>
       <button type="button" class="chip wx-tab" data-wx="rain" aria-pressed="false">Regen</button>
       <button type="button" class="chip wx-tab" data-wx="temp" aria-pressed="false">Temp</button>
     </div>
-    <div id="wxChart" class="wx-chart-box"></div>
+    <div id="wxChart" class="wx-chart-box" hidden></div>
 
     <p id="wxStatus" class="hint"></p>
     <p class="wx-credit">Wetterdaten von
