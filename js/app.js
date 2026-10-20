@@ -13,6 +13,22 @@
 
   // Ab dieser Geschwindigkeit gilt der berechnete Kurs als brauchbar (GPS-Rauschen im Stand).
   const MOVING_MS = 0.5;
+
+  /* Stillstandserkennung.
+     Im Stand streuen die Fixes unabhängig voneinander um dieselbe wahre Lage.
+     Der Versatz zwischen erstem und letztem Fix bleibt deshalb im Rahmen der
+     Messunsicherheit, ganz gleich wie lang das Fenster ist. Echte Fahrt
+     dagegen wächst linear mit der Zeit. Genau daran lassen sich beide
+     trennen – und daran zeigt sich auch, wie lang das Fenster sein muss: Bei
+     6 m Genauigkeit braucht 1 kn rund eine halbe Minute, bis der Versatz aus
+     dem Rauschen ragt. Deshalb mehrere Fenster nebeneinander – schnelle
+     Fahrt wird früh erkannt, langsames Vertreiben später, aber eben doch. */
+  const HISTORY_MS = 45000;
+  const WINDOWS_MS = [5000, 15000, 40000];
+  const CONF = 3;          // nötiger Versatz als Vielfaches der Unsicherheit
+  const CONF_KEEP = 1.8;   // gelockert, solange bereits Fahrt erkannt ist
+  const MIN_VOTES = 2;     // zwei Fixes in Folge, gegen einzelne Ausreißer
+  const MIN_BASELINE_S = 3;
   const MAX_TRACK_POINTS = 5000;
 
   const $ = (id) => document.getElementById(id);
@@ -64,6 +80,9 @@
     startedAt: null,
     elapsedBefore: 0,
     track: [],
+    history: [],         // letzte Fixes für die Stillstandserkennung
+    still: null,         // true = Stillstand, false = Fahrt, null = unklar
+    votes: 0,            // aufeinanderfolgende Fixes mit erkannter Bewegung
     follow: true,
     // Aufzeichnung
     tripId: null,
@@ -251,23 +270,101 @@
     state.elapsedBefore + (state.startedAt ? (Date.now() - state.startedAt) / 1000 : 0);
 
   /* ---------- GPS ---------- */
+
+  function pushHistory(fix, accuracy) {
+    state.history.push({ lat: fix.lat, lon: fix.lon, t: fix.t, acc: accuracy });
+    const cutoff = fix.t - HISTORY_MS;
+    while (state.history.length > 2 && state.history[0].t < cutoff) state.history.shift();
+  }
+
+  /** Ältester Fix, der mindestens `ms` zurückliegt – sonst der älteste. */
+  function baseline(ms) {
+    const h = state.history;
+    if (h.length < 2) return null;
+    const newest = h[h.length - 1];
+    for (let i = h.length - 2; i >= 0; i--) {
+      if (newest.t - h[i].t >= ms) return h[i];
+    }
+    return h[0];
+  }
+
+  /**
+   * Strecke und Zeit über ein Fenster. `moving` vergleicht die zurückgelegte
+   * Strecke mit dem, was die gemeldete Messgenauigkeit an Zufallsversatz
+   * hergibt – nur darüber gilt es als echte Fahrt.
+   */
+  function windowMotion(ms) {
+    const from = baseline(ms);
+    if (!from) return null;
+    const to = state.history[state.history.length - 1];
+    const dt = (to.t - from.t) / 1000;
+    if (dt < MIN_BASELINE_S) return null;
+    const net = haversine(from, to);
+    const sigma = ((from.acc || 10) + (to.acc || 10)) / 2;
+    return { from, to, net, dt, speed: net / dt, sigma };
+  }
+
+  /**
+   * Kürzestes Fenster, in dem der Versatz sicher über der Messunsicherheit
+   * liegt. Kurz heißt wenig Verzögerung – erst wenn das kurze Fenster nichts
+   * hergibt, wird über eine längere Strecke gemessen.
+   * Rückgabe: Fenster bei Fahrt, false bei Stillstand, null wenn die
+   * Beobachtung für eine Aussage noch nicht reicht.
+   */
+  function motionEstimate() {
+    const needed = state.still === false ? CONF_KEEP : CONF;
+    let measured = false;
+    for (const ms of WINDOWS_MS) {
+      const m = windowMotion(ms);
+      if (!m) continue;
+      measured = true;
+      if (m.net > needed * m.sigma) return m;
+    }
+    return measured ? false : null;
+  }
+
   function onPosition(pos) {
     const c = pos.coords;
     const now = pos.timestamp || Date.now();
     const fix = { lat: c.latitude, lon: c.longitude, t: now };
 
+    pushHistory(fix, c.accuracy);
+
     let raw = (typeof c.speed === 'number' && isFinite(c.speed) && c.speed >= 0) ? c.speed : null;
     let course = (typeof c.heading === 'number' && isFinite(c.heading)) ? c.heading : null;
     let segment = 0;
 
+    const leg = motionEstimate();
+    if (leg !== null) {
+      // Ein einzelner Ausreißer soll die Anzeige nicht aufwecken.
+      state.votes = leg ? Math.min(MIN_VOTES, state.votes + 1) : 0;
+      state.still = state.votes < MIN_VOTES;
+    }
+
+    if (state.still === true) {
+      /* Im Stand liefert jedes GPS einen Zufallsversatz von einigen Metern.
+         Von Fix zu Fix gerechnet ergibt das mehrere Knoten – und Glätten hilft
+         dagegen grundsätzlich nicht, weil Geschwindigkeit ein Betrag ist:
+         gemitteltes Rauschen bleibt positiv. Steht das Boot, wird die Fahrt
+         deshalb auf null gesetzt statt gefiltert. */
+      raw = 0;
+      course = null;
+    }
+
     if (state.last) {
       const dt = (now - state.last.t) / 1000;
       segment = haversine(state.last, fix);
-      if (dt > 0.2 && dt < 30) {
-        // Fällt das Gerät für Geschwindigkeit/Kurs aus, aus zwei Fixes rechnen.
-        if (raw === null) raw = segment / dt;
-        if (course === null && segment > Math.max(3, (c.accuracy || 0) * 0.5)) {
-          course = bearing(state.last, fix);
+      if (dt > 0.2 && dt < 30 && state.still !== true) {
+        // Fällt das Gerät für Geschwindigkeit/Kurs aus, über ein paar Sekunden
+        // messen statt von Fix zu Fix – das dämpft den Zufallsversatz. Solange
+        // das Fenster für ein Urteil nicht reicht, bleibt die Anzeige leer:
+        // lieber nichts zeigen als einen Fantasiewert.
+        if (raw === null && state.still === false && leg) raw = leg.speed;
+        /* Auch der Kurs darf nicht aus zwei benachbarten Fixes kommen: bei
+           2–3 m Fahrstrecke je Sekunde und ebenso viel Streuung zeigt die
+           Peilung in Zufallsrichtungen. Über das Fenster gemessen stimmt sie. */
+        if (course === null && state.still === false && leg) {
+          course = bearing(leg.from, leg.to);
         }
         // Strecke nur zählen, wenn die Bewegung deutlich über dem Messrauschen liegt.
         // Distanz und Fahrzeit gehören zur Aufzeichnung – ohne sie würden
@@ -280,13 +377,15 @@
     }
 
     if (raw !== null) {
-      state.speed = (state.speed === null || state.alpha >= 1)
+      // Bei erkanntem Stillstand sofort auf null, statt über die Glättung
+      // langsam dorthin zu kriechen.
+      state.speed = (state.speed === null || state.alpha >= 1 || raw === 0)
         ? raw
         : state.speed + state.alpha * (raw - state.speed);
       if (recording() && state.speed > state.maxSpeed) state.maxSpeed = state.speed;
     }
 
-    const moving = state.speed !== null && state.speed > MOVING_MS;
+    const moving = state.still !== true && state.speed !== null && state.speed > MOVING_MS;
     if (course !== null && moving) {
       state.cog = course;
       state.cogFresh = true;
@@ -301,8 +400,10 @@
     el.alt.textContent = (typeof c.altitude === 'number' && isFinite(c.altitude)) ? Math.round(c.altitude) : '–';
     el.hint.textContent = moving
       ? ''
-      : (recording() ? 'Kurs erst ab ca. 1 kn Fahrt zuverlässig.'
-                     : 'Bereit – „Aufzeichnen“ startet den Törn.');
+      : (state.still === true
+          ? 'Stillstand – GPS-Rauschen wird unterdrückt.'
+          : (recording() ? 'Kurs erst ab ca. 1 kn Fahrt zuverlässig.'
+                         : 'Bereit – „Aufzeichnen“ startet den Törn.'));
 
     setBadge('live', 'GPS aktiv');
     fetchWeather(false);
