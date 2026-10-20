@@ -127,8 +127,8 @@ Browser gespeichert und wird offline weiter angezeigt, mit Altersangabe.
 **Ort und Ausblenden.** Unter der Überschrift steht, für welchen Ort das
 Wetter gilt – ermittelt über die Rückwärtssuche von OpenStreetMap
 (Nominatim), einmal je Abfrage. Auf offenem Wasser gibt es keinen Ortsnamen,
-dann steht dort die Position in Grad und Dezimalminuten. Liegt der Ort mehr
-als 2 sm entfernt, wird die Entfernung dazugeschrieben.
+dann bleibt die Zeile leer. Liegt der Ort der Abfrage mehr als 2 sm entfernt,
+wird die Entfernung dazugeschrieben.
 
 Die Wetterkarte verschwindet, wenn sie nichts Brauchbares zeigen kann:
 

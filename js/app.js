@@ -945,25 +945,26 @@
     if (el.wxAge.textContent !== ageText) el.wxAge.textContent = ageText;
     el.wxAge.classList.toggle('old', age > Weather.STALE_MS);
 
-    // Auf offenem Wasser gibt es keinen Ortsnamen – dann die Position,
-    // so wie sie auch in der Seekarte stünde.
-    const name = data.place || formatPosition(data.lat, data.lon);
+    // Auf offenem Wasser gibt es keinen Ortsnamen – dann steht dort nichts,
+    // höchstens die Entfernung zum Ort der Abfrage.
+    const name = data.place || '';
     let away = '';
     if (state.last) {
       const d = haversine(state.last, data);
-      if (d > 2 * 1852) away = ` · ${(d / 1852).toFixed(d < 18520 ? 1 : 0)} sm entfernt`;
+      if (d > 2 * 1852) away = `${(d / 1852).toFixed(d < 18520 ? 1 : 0)} sm entfernt`;
     }
-    const label = name + away;
+    const label = [name, away].filter(Boolean).join(' · ');
     if (el.wxPlace.dataset.label !== label) {
       el.wxPlace.dataset.label = label;
       el.wxPlace.textContent = name;
       if (away) {
         const small = document.createElement('span');
         small.className = 'su';
-        small.textContent = away;
+        small.textContent = name ? ' · ' + away : away;
         el.wxPlace.appendChild(small);
       }
       el.wxPlace.title = label;
+      el.wxPlace.hidden = !label;
     }
   }
 
