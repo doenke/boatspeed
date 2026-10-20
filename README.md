@@ -138,6 +138,33 @@ unter CC BY 4.0, der Quellenhinweis unter der Karte gehört deshalb dazu.
   als die Berechnung aus Positionsdifferenzen; letztere greift nur als Fallback.
 - Der Kurs wird erst ab ca. 0,5 m/s (≈ 1 kn) aktualisiert – im Stand ist er reines Rauschen.
   Der zuletzt gültige Kurs bleibt ausgegraut stehen.
+
+### Stillstand
+
+Liegt das Boot still, streuen die Fixes unabhängig voneinander um dieselbe
+Lage. Aus dem Abstand zweier aufeinanderfolgender Fixes gerechnet ergibt das
+bei 1 s Takt und wenigen Metern Streuung mehrere Knoten in zufälliger
+Richtung. **Glätten hilft dagegen grundsätzlich nicht:** Geschwindigkeit ist
+ein Betrag, gemitteltes Rauschen bleibt also positiv.
+
+Die App vergleicht deshalb den Versatz zwischen dem ersten und dem letzten Fix
+eines Zeitfensters mit der gemeldeten Messgenauigkeit. Im Stand bleibt dieser
+Versatz im Rahmen der Unsicherheit, ganz gleich wie lang das Fenster ist –
+echte Fahrt wächst dagegen linear mit der Zeit.
+
+Gemessen wird über **drei Fenster zugleich** (5 s, 15 s, 60 s); genommen wird
+das kürzeste, dessen Versatz sicher über dem Rauschen liegt. Das folgt aus der
+Messtechnik: Bei 6 m Genauigkeit ragt 1 kn erst nach rund einer Minute
+heraus, 6 kn schon nach wenigen Sekunden. Ein langes Fenster darf dabei nie
+mehr Fahrt melden, als ein kurzes bereits ausgeschlossen hat – sonst hinge die
+Anzeige nach dem Anhalten noch eine Minute nach.
+
+Wird Stillstand erkannt, steht die Fahrt auf **0,0**, der Kurs friert
+ausgegraut ein, und Distanz wie Fahrzeit wachsen nicht weiter.
+
+**Was das kostet:** Nach dem Losfahren dauert es rund zehn Sekunden, bis eine
+Fahrt angezeigt wird, und nach dem Anhalten ebenso lange bis zur Null. Das ist
+der Preis dafür, im Hafen keine Phantomfahrt zu sehen.
 - Distanzen werden nur addiert, wenn die Bewegung deutlich über der gemeldeten
   Messgenauigkeit liegt; das verhindert „Driften“ beim Ankerliegen.
 
